@@ -79,11 +79,12 @@ metadata:
   form_numbers:
     - CJ-D 101A
     - Affid. Irretrievable Breakdown
-    - r408
+    - R408
   fees:
-    - Filing fee: $215.00
+    - Divorce Filing fee: $200.00
+    - Divorce Surcharge: $15.00
   update_notes: |
-    Divorce Joint Petition v2.0 - Fresh joint petition (initial filings) interview file for EOY handoff
+    Divorce Joint Petition v2.0 - Fresh joint petition (initial filings) interview file for spring 26 handoff
 ---
 code: |
   # This controls the default country and list of states in address field questions
@@ -99,15 +100,23 @@ code: |
 code: |
   al_form_type = "starts_case" 
 ---
+objects:
+  - users: ALPeopleList.using(ask_number=False, target_number=2)
+  - children: ALPeopleList.using(ask_number=False, target_number=children_of_marriage_number)
+  - attorneys: ALPeopleList.using(ask_number=False)
+  - marital_home: ALAddress
+  - trial_court: MACourt
+--- 
 sections:
-  - people: Names & contacts
-  - case_details: Marriage & case details
-  - family_info: Children & personal requests
-  - addresses_court: Addresses & court information
-  - review_and_sign: Review & sign
-  - download: Download & next steps
-  - review_divorcejointpetition: Review your answers
+  - divorce_eligibility: Eligibility
+  - relationship_background: Relationship background
+  - party_information: Party information
+  - court_requests: Divorce action details
+  - children_information: Children
+  - review_and_sign: Review and sign
+  - additional_circumstances_and_filings: Special circumstances and additional filings
 ---
+#################### Interview order #####################
 comment: |
   Controls order and branching logic for questions specific to this form
 id: interview_order_divorcejointpetition
@@ -116,10 +125,15 @@ code: |
   allowed_courts = ['Probate and Family Court']
   user_role = "plaintiff"
   user_ask_role = "plaintiff"
-  nav.set_section("people")
+  nav.set_section("divorce_eligibility")
+  legal_marriage
+  massachusetts_residency
+  if massachusetts_residency == False:
+    breakdown_in_massachusetts
+  nav.set_section("party_information")
   users.gather()
   set_parts(subtitle=str(users))
-  nav.set_section("case_details")
+  nav.set_section("relationship_background")
   marriage_location
   children1_name_full_plus_birthdate
   set_progress(12)
@@ -133,13 +147,14 @@ code: |
   set_progress(36)
   additional_request
   attorneys1_bbo_number
-  nav.set_section("addresses_court")
+  nav.set_section("court_requests")
   trial_court.address.address
-  nav.set_section("case_details")
+  nav.set_section("children_information")
   set_progress(48)
   docket_number
   users[0].address.address
   users[1].address.address
+  nav.set_section("additional_circumstances_and_filings")
   nav.set_section("review_and_sign")
   set_progress(60)
   signature_date
@@ -147,6 +162,7 @@ code: |
   users1_petition_signature
   interview_order_divorcejointpetition = True
 ---
+###################### Main order ######################
 comment: |
   This block includes the logic for standalone interviews.
   Delete mandatory: True to include in another interview
@@ -170,10 +186,10 @@ code: |
   users1_petition_signature
   divorcejointpetition_download
 ---
-id: Joint1ADivorce
+id: Joint1ADivorce 
 continue button field: divorcejointpetition_intro
 question: |
-  Joint1ADivorce
+  Joint (1A) Divorce
 subquestion: |
   This interview will help you jointly ask the court for a no-fault divorce.
   
@@ -193,6 +209,44 @@ subquestion: |
   4. If child support is being addressed or waived:
     a. child support guidelines worksheet (CJD 304)
     b. findings and determinations for child support and post-secondary education (CJD 305)
+---
+id: Party B name
+sets:
+  users[1].name.first
+question: |
+  Spouse name
+subquestion: |
+  Who is married to ${  users[0].name_full()  }?
+fields:
+  - code: |
+      users[1].name_fields()  
+---
+id: legal marriage
+question: |
+  ${  users[0].name_full()  } and ${  users[1].name_full()  }
+subquestion: |
+  Legal marriage confirmation
+fields: 
+  - "Are ${  users[0].name_full()  } and ${  users[1].name_full()  } legally married? " : legal_marriage
+    datatype: yesnoradio
+---
+id: Confirm Massachusetts jurisdiction A
+question: |
+  Massachusetts jurisdiction confirmation
+fields:
+  - "Have either or both ${ users[0] } and ${ users[1] } lived in Massachusetts for at least one year?": massachusetts_residency
+    datatype: yesnoradio
+  
+---
+id: Confirm Massachusetts jurisdiction B
+question: |
+  Massachusetts jurisdiction confirmation part II
+fields:
+  - "Did the reason the marriage between ${ users[0] } and ${ users[1] } ended happen in Massachusetts?": breakdown_in_massachusetts
+    datatype: yesnoradio
+
+  - "Have ${ users[0] } and ${ users[1] } ever lived in Massachusetts as a couple?": couple_ever_lived_in_massachusetts
+    datatype: yesnoradio
 ---
 id: Marriage Details
 question: |
@@ -335,6 +389,10 @@ signature: users2_petition_signature
 question: |
   Users1 petition signature, sign below
 signature: users1_petition_signature
+---
+# set users.there_is_another to False to prevent triggering question to add more than 2 users. 
+code: |
+  users.there_is_another = False
 ---
 code: |
   marriage_location = DAEmpty()
