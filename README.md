@@ -6,7 +6,7 @@ Interview generates:
 - Affidavit of irretrievable breakdown
 
 Interviews needed if children:
-- Child care or custody disclosure (w/supplement)
+- Child care or custody disclosure (w/supplement for 5-9 children)
 - Child support guidelines worksheet (CJD-304)
 - Findings and Determnations for Child Support and Post-Secondary Education (CJD 305) *cout wants always starting 2026
 
