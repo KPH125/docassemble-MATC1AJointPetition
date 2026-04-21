@@ -1,0 +1,27 @@
+[build-system]
+requires = [
+    "setuptools==80.9.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docassemble.MATC1AJointPetition"
+version = "2.0.1"
+description = "A docassemble interview to prepare and file papers to initiate a joint 1A divorce petition in Massachusetts."
+readme = "README.md"
+authors = [
+    { name = "KP Hunsinger", email = "litlab@suffolk.edu" },
+]
+dependencies = []
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
+
+[project.urls]
+Homepage = "https://docassemble.org"
+
+[tool.setuptools.packages.find]
+where = [
+    ".",
+]

@@ -1,0 +1,625 @@
+---
+include:
+  - docassemble.AssemblyLine:assembly_line.yml
+  - docassemble.ALMassachusetts:al_massachusetts.yml
+  - docassemble.MassAccess:massaccess.yml
+  #- 209A_affidavit_disclosing_care_or_custody_proceedings.yml
+  #- Financial statement interview
+  #- Separation agreement interview
+---
+metadata:
+  title: >-
+    Joint1ADivorce
+  short title: >-
+    Joint1ADivorce
+  description: |-
+    This interview helps married people in Massachusetts jointly ask the court for a no-fault divorce.
+  can_I_use_this_form: |
+    If you are a married person in Massachusetts, you can use this interview (with your spouse) to jointly ask the court for a no-fault divorce.
+  before_you_start: |
+    This interview will help you jointly ask the court for a no-fault divorce.
+    
+    Before you get started, please gather:
+    
+    1. Certified Copy of Marriage Certificate
+    2. Notarized Separation Agreement (if already prepared) 
+    3. Names, birthdays, and addresses for both parties and all minor children of the marriage
+    4. Monthly budget or finance tracking information
+    5. Recent pay stubs 
+    
+    When you are finished, you will need to:
+    
+    1. File Notarized Separation Agreement (unless complete) 
+    2. File Certified Copy of Marriage Certificate (unless complete) 
+    3. File financial statements for each petitioner
+    4. If child support is being addressed or waived:
+      a. child support guidelines worksheet (CJD 304)
+      b. findings and determinations for child support and post-secondary education (CJD 305)
+  when_you_are_finished: |
+    File any remaining paperwork with the court registry and
+  efiling_enabled: False
+  integrated_efiling: False
+  integrated_email_filing: False
+  requires_notarization: False
+  unlisted: False
+  landing_page_url: >-
+    https://www.mass.gov/guides/get-a-no-fault-1a-divorce
+  maturity: production
+  estimated_completion_minutes: 30
+  estimated_completion_delta: 5
+  LIST_topics:
+    - "FA-00-00-00-00"
+    - "FA-06-00-00-00"
+  tags:
+    - "FA-00-00-00-00"
+    - "FA-06-00-00-00"
+  # Keep legacy tags behavior for compatibility with downstream tools.
+  authors:
+    - KP Hunsinger
+  original_form:
+    - https://www.mass.gov/info-details/probate-and-family-court-joint-petition-for-divorce-pursuant-to-gl-c208-ss-1a-cjd-101a
+  original_form_published_on: ""
+  help_page_url: >-
+    https://www.mass.gov/guides/get-a-no-fault-1a-divorce
+  help_page_title: >-
+    Get a no-fault 1A divorce - Mass.gov
+  allowed_courts: 
+    - "Probate and Family Court"
+  typical_role: "plaintiff"
+  al_weaver_version: "2.1.0"
+  generated_on: "2026-04-20"
+  languages:
+    - en
+  jurisdiction: "NAM-US-US+MA"
+  review_date: 2026-04-20
+  form_titles:
+    - Joint Petiton for Divorce 1A
+    - Affidavit of Irretrievable Breakdown
+    - Report of Absolute Divorce or Annulment
+  form_numbers:
+    - CJ-D 101A
+    - Affid. Irretrievable Breakdown
+    - r408
+  fees:
+    - Filing fee: $215.00
+  update_notes: |
+    Divorce Joint Petition v2.0 - Fresh joint petition (initial filings) interview file for EOY handoff
+---
+code: |
+  # This controls the default country and list of states in address field questions
+  AL_DEFAULT_COUNTRY = "US"
+---
+code: |
+  # This controls the default state in address field questions
+  AL_DEFAULT_STATE = "MA"
+---
+code: |
+  github_repo_name =  'docassemble-MATC1AJointPetition'
+---
+code: |
+  al_form_type = "starts_case" 
+---
+sections:
+  - people: Names & contacts
+  - case_details: Marriage & case details
+  - family_info: Children & personal requests
+  - addresses_court: Addresses & court information
+  - review_and_sign: Review & sign
+  - download: Download & next steps
+  - review_divorcejointpetition: Review your answers
+---
+comment: |
+  Controls order and branching logic for questions specific to this form
+id: interview_order_divorcejointpetition
+code: |
+  # Set the allowed courts for this interview
+  allowed_courts = ['Probate and Family Court']
+  user_role = "plaintiff"
+  user_ask_role = "plaintiff"
+  nav.set_section("people")
+  users.gather()
+  set_parts(subtitle=str(users))
+  nav.set_section("case_details")
+  marriage_location
+  children1_name_full_plus_birthdate
+  set_progress(12)
+  previous_action_detail
+  marriage_breakdown_date
+  request_divorce_nofault
+  set_progress(24)
+  users1_request_name_change
+  users1_petition_signer_name_full
+  users2_petition_signer_name_full
+  set_progress(36)
+  additional_request
+  attorneys1_bbo_number
+  nav.set_section("addresses_court")
+  trial_court.address.address
+  nav.set_section("case_details")
+  set_progress(48)
+  docket_number
+  users[0].address.address
+  users[1].address.address
+  nav.set_section("review_and_sign")
+  set_progress(60)
+  signature_date
+  users2_petition_signature
+  users1_petition_signature
+  interview_order_divorcejointpetition = True
+---
+comment: |
+  This block includes the logic for standalone interviews.
+  Delete mandatory: True to include in another interview
+mandatory: True
+code: |
+  al_intro_screen
+  divorcejointpetition_intro
+  interview_order_divorcejointpetition
+  signature_date
+  # Store anonymous data for analytics / statistics
+  store_variables_snapshot(
+      persistent=True,
+      data={
+          "zip": showifdef("users[0].address.zip"),
+          "reached_interview_end": True,
+      },
+  )
+  divorcejointpetition_preview_question
+  basic_questions_signature_flow    
+  users2_petition_signature
+  users1_petition_signature
+  divorcejointpetition_download
+---
+id: Joint1ADivorce
+continue button field: divorcejointpetition_intro
+question: |
+  Joint1ADivorce
+subquestion: |
+  This interview will help you jointly ask the court for a no-fault divorce.
+  
+  Before you get started, please gather:
+  
+  1. Certified Copy of Marriage Certificate
+  2. Notarized Separation Agreement (if already prepared) 
+  3. Names, birthdays, and addresses for both parties and all minor children of the marriage
+  4. Monthly budget or finance tracking information
+  5. Recent pay stubs 
+  
+  When you are finished, you will need to:
+  
+  1. File Notarized Separation Agreement (unless complete) 
+  2. File Certified Copy of Marriage Certificate (unless complete) 
+  3. File financial statements for each petitioner
+  4. If child support is being addressed or waived:
+    a. child support guidelines worksheet (CJD 304)
+    b. findings and determinations for child support and post-secondary education (CJD 305)
+---
+id: Marriage Details
+question: |
+  Marriage Details
+subquestion: |
+  Please have the marriage location and date ready.
+fields:
+  - "Where marriage took place": marriage_location
+  - "Marriage date": marriage_date
+    datatype: date
+  - "Last living together date": last_living_together_date
+    datatype: date
+  - "Marital home address": marital_home_address_on_one_line
+---
+id: Children Information
+question: |
+  Children Information
+subquestion: |
+  Please list the names and birthdates of your children.
+fields:
+  - "Child 1 name and birthdate": children1_name_full_plus_birthdate
+  - "Child 2 name and birthdate": children2_name_full_plus_birthdate
+  - "Child 3 name and birthdate": children3_name_full_plus_birthdate
+  - "Child 4 name and birthdate": children4_name_full_plus_birthdate
+---
+id: Previous Actions
+question: |
+  Previous Actions
+subquestion: |
+  If there were any previous legal actions, please provide details.
+fields:
+  - "Details of previous actions": previous_action_detail
+    input type: area
+---
+id: Marriage Breakdown
+question: |
+  Marriage Breakdown
+subquestion: |
+  Please provide the date of the marriage breakdown.
+fields:
+  - "Date of marriage breakdown": marriage_breakdown_date
+    datatype: date
+---
+id: Divorce Requests
+question: |
+  Divorce Requests
+subquestion: |
+  Please have your requests for the divorce agreement ready.
+fields:
+  - "Request no-fault divorce": request_divorce_nofault
+    datatype: yesno
+  - "Request to approve agreement": request_separation_agreement_approval
+    datatype: yesno
+  - "Request to merge agreement": request_merge_agreement
+    datatype: yesno
+  - "Request to keep agreement": request_survive_agreement
+    datatype: yesno
+---
+id: Name Change Requests
+question: |
+  Name Change Requests
+subquestion: |
+  If you want to change names, please provide your former names.
+fields:
+  - "User 1 wants name change": users1_request_name_change
+    datatype: yesno
+  - "User 1 former last name": users1_former_name_last
+  - "User 2 wants name change": users2_request_name_change
+    datatype: yesno
+  - "User 2 former last name": users2_former_name_last
+---
+id: Petition Signers Information
+question: |
+  Petition Signers Information
+subquestion: |
+  Please have the names and addresses of the signers ready.
+fields:
+  - "User 1 signer full name": users1_petition_signer_name_full
+  - "User 1 signer address": users1_petition_signer_address_address
+  - "User 1 signer city": users1_petition_signer_address_city
+  - "User 1 signer state": users1_petition_signer_address_state
+  - "User 1 signer zip code": users1_petition_signer_address_zip
+  - "User 1 signer phone number": users1_petition_signer_phone_number
+---
+id: Petitioner B Information
+question: |
+  Petitioner B Information
+subquestion: |
+  Please have the details for the second petitioner ready.
+fields:
+  - "User 2 signer full name": users2_petition_signer_name_full
+  - "User 2 signer address": users2_petition_signer_address_address
+  - "User 2 signer city": users2_petition_signer_address_city
+  - "User 2 signer state": users2_petition_signer_address_state
+  - "User 2 signer zip code": users2_petition_signer_address_zip
+  - "User 2 signer phone number": users2_petition_signer_phone_number
+---
+id: Additional Requests
+question: |
+  Additional Requests
+subquestion: |
+  If you have any other requests, please provide details.
+fields:
+  - "Any additional requests": additional_request
+    datatype: yesno
+  - "Details of additional request": additonal_request_detail
+---
+id: Attorney Information
+question: |
+  Attorney Information
+subquestion: |
+  Please provide the BBO numbers for your attorneys.
+fields:
+  - "Attorney 1 BBO number": attorneys1_bbo_number
+  - "Attorney 2 BBO number": attorneys2_bbo_number
+---
+id: preview divorcejointpetition
+question: |
+  Preview your form before you sign it
+subquestion: |
+  Here is a preview of the form you will sign on the next page.   
+  
+  ${ al_court_bundle.as_pdf(key='preview') }
+
+  Click the image to open it in a new tab. Click the "Edit answers" button
+  to edit your answers.
+
+  ${ action_button_html(url_action('review_divorcejointpetition'), label='Edit answers', color='info') }
+  
+  Remember to come back to this window to continue and sign your form.
+continue button field: divorcejointpetition_preview_question    
+---
+code: |
+  signature_fields = ['users2_petition_signature', 'users1_petition_signature']
+---
+question: |
+  Users2 petition signature, sign below
+signature: users2_petition_signature
+---
+question: |
+  Users1 petition signature, sign below
+signature: users1_petition_signature
+---
+code: |
+  marriage_location = DAEmpty()
+---
+code: |
+  marital_home_address_on_one_line = DAEmpty()
+---
+code: |
+  children1_name_full_plus_birthdate = DAEmpty()
+---
+code: |
+  children2_name_full_plus_birthdate = DAEmpty()
+---
+code: |
+  children3_name_full_plus_birthdate = DAEmpty()
+---
+code: |
+  children4_name_full_plus_birthdate = DAEmpty()
+---
+code: |
+  request_divorce_nofault = DAEmpty()
+---
+code: |
+  request_separation_agreement_approval = DAEmpty()
+---
+code: |
+  users1_petition_signer_name_full = DAEmpty()
+---
+code: |
+  users2_petition_signer_name_full = DAEmpty()
+---
+code: |
+  users1_petition_signer_address_address = DAEmpty()
+---
+code: |
+  users2_petition_signer_address_address = DAEmpty()
+---
+code: |
+  users1_petition_signer_address_city = DAEmpty()
+---
+code: |
+  users1_petition_signer_address_state = DAEmpty()
+---
+code: |
+  users1_petition_signer_address_zip = DAEmpty()
+---
+code: |
+  users2_petition_signer_address_city = DAEmpty()
+---
+code: |
+  users2_petition_signer_address_state = DAEmpty()
+---
+code: |
+  users2_petition_signer_address_zip = DAEmpty()
+---
+code: |
+  users1_petition_signer_phone_number = DAEmpty()
+---
+code: |
+  users2_petition_signer_phone_number = DAEmpty()
+---
+code: |
+  # This is a placeholder for the addresses that will be searched
+  # for matching address to court. Edit if court venue is based on 
+  # a different address than the user's
+  [user.address.address for user in users.complete_elements()]
+  addresses_to_search = [user.address for user in users.complete_elements()]
+---
+id: divorcejointpetition review screen
+event: review_divorcejointpetition
+question: |
+  Review your answers
+review:
+  - Edit: trial_court
+    button: |
+      **Trial court**
+  
+      % if defined("trial_court.address.county"):
+      * address: ${ trial_court.address.block() }
+      % endif
+  - Edit: docket_number
+    button: |
+      **Docket number**:
+      ${ docket_number }
+  - Edit: users.revisit
+    button: |
+      **Users**
+
+      % for item in users:
+        * ${ item }
+      % endfor
+  - Edit: marriage_date
+    button: |
+      **When were you married?**:
+      ${ marriage_date }
+  - Edit: last_living_together_date
+    button: |
+      **When did ${  users[0].familiar()  } and ${  users[1].familiar()  } last live together?**:
+      ${ last_living_together_date }
+  - Edit: previous_action_detail
+    button: |
+      **List details for all previous actions**:
+      > ${ single_paragraph(previous_action_detail) }
+  - Edit: marriage_breakdown_date
+    button: |
+      **When did the marriage breakdown occur?**:
+      ${ marriage_breakdown_date }
+  - Edit: request_merge_agreement
+    button: |
+      **Request merge agreement**:
+      ${ request_merge_agreement }
+  - Edit: request_survive_agreement
+    button: |
+      **Request survive agreement**:
+      ${ request_survive_agreement }
+  - Edit: users1_request_name_change
+    button: |
+      **Does ${  users[0].familiar()  } want to change their last name to their former last name?**:
+      ${ users1_request_name_change }
+  - Edit: users1_former_name_last
+    button: |
+      **${  users[0].familiar()  }'s last name before marriage**:
+      ${ users1_former_name_last }
+  - Edit: users2_request_name_change
+    button: |
+      **Does ${  users[1].familiar()  } want to change their last name to their former last name?**:
+      ${ users2_request_name_change }
+  - Edit: users2_former_name_last
+    button: |
+      **${  users[1]  }'s last name before marriage**:
+      ${ users2_former_name_last }
+  - Edit: additional_request
+    button: |
+      **Do you have any additional requests for the court?**:
+      ${ additional_request }
+  - Edit: additonal_request_detail
+    button: |
+      **Additional request details**:
+      ${ additonal_request_detail }
+  - Edit: signature_date
+    button: |
+      **Date of signature**:
+      ${ signature_date }
+  - Edit: users2_petition_signature
+    button: |
+      **users2_petition_signature**:
+      ${ users2_petition_signature }
+  - Edit: users1_petition_signature
+    button: |
+      **users1_petition_signature**:
+      ${ users1_petition_signature }
+  - Edit: attorneys1_bbo_number
+    button: |
+      **Attorney 1 BBO number**:
+      ${ attorneys1_bbo_number }
+  - Edit: attorneys2_bbo_number
+    button: |
+      **Attorney 2 BBO number**:
+      ${ attorneys2_bbo_number }
+---
+id: edit users
+continue button field: users.revisit
+question: |
+  Edit users
+subquestion: |
+  ${ users.table }
+
+  ${ users.add_action() }
+---
+table: users.table
+rows: users
+columns:
+  - Name: |
+      row_item.name_full() if defined("row_item.name.first") else ""
+  - Address: |
+      row_item.address.block() if defined("row_item.address.zip") else ""
+edit:
+  - name.first
+  - address.zip
+confirm: True
+
+---
+id: download divorcejointpetition
+event: divorcejointpetition_download
+question: |
+  All done
+subquestion: |
+  Thank you ${users}. Your form is ready to download and deliver.
+  
+  View, download and send your form below. Click the "Edit answers" button to fix any mistakes.
+
+  ${ action_button_html(url_action('review_divorcejointpetition'), label='Edit answers', color='info') }
+  
+  
+  ${ al_user_bundle.download_list_html() }
+  
+
+  ${ al_user_bundle.send_button_html(show_editable_checkbox=False) }
+
+progress: 100
+---
+# ALDocument objects specify the metadata for each template
+objects:
+  - divorcejointpetition_Post_interview_instructions: ALDocument.using(title="Instructions", filename="divorcejointpetition_next_steps.docx", enabled=True, has_addendum=False)
+  - divorcejointpetition_attachment: ALDocument.using(title="Joint1ADivorce", filename="divorcejointpetition", enabled=True, has_addendum=True, default_overflow_message=AL_DEFAULT_OVERFLOW_MESSAGE)
+---
+# Bundles group the ALDocuments into separate downloads, such as for court and for the user
+objects:
+  - al_user_bundle: ALDocumentBundle.using(elements=[divorcejointpetition_Post_interview_instructions, divorcejointpetition_attachment], filename="divorcejointpetition", title="All forms to download for your records", enabled=True)
+  - al_court_bundle: ALDocumentBundle.using(elements=[divorcejointpetition_attachment],  filename="divorcejointpetition", title="All forms to deliver to court", enabled=True)
+---
+# Each attachment defines a key in an ALDocument. We use `i` as the placeholder here so the same template is 
+# used for "preview" and "final" keys, and logic in the template checks the value of 
+# `i` to show or hide the user's signature
+attachment:
+  name: Post-interview-Instructions
+  filename: divorcejointpetition_next_steps
+  docx template file: jointpetitionfordivorce_next_steps.docx
+  variable name: divorcejointpetition_Post_interview_instructions[i]
+  skip undefined: True
+  tagged pdf: True
+---
+attachment:
+  name: divorcejointpetition
+  filename: divorcejointpetition
+  variable name: divorcejointpetition_attachment[i]
+  skip undefined: True
+  pdf template file: jointpetitionfordivorce.pdf
+  fields:
+      - "trial_court_county": ${ trial_court.address.county }
+      - "docket_number": ${ docket_number }
+      - "users1_name_full": ${ users[0] }
+      - "users2_name_full": ${ users[1] }
+      - "users1_address_address": ${ users[0].address.address }
+      - "users2_address_address": ${ users[1].address.address }
+      - "users1_address_city": ${ users[0].address.city }
+      - "users1_address_state": ${ users[0].address.state }
+      - "users1_address_zip": ${ users[0].address.zip }
+      - "users2_address_city": ${ users[1].address.city }
+      - "users2_address_state": ${ users[1].address.state }
+      - "users2_address_zip": ${ users[1].address.zip }
+      - "marriage_location": ${ marriage_location }
+      - "marital_home_address_on_one_line": ${ marital_home_address_on_one_line }
+      - "marriage_date": ${ marriage_date.format() }
+      - "last_living_together_date": ${ last_living_together_date.format() }
+      - "children1_name_full_plus_birthdate": ${f"{ children[0].name_full() } {children[0].birthdate.format()}"}
+      - "children2_name_full_plus_birthdate": ${f"{children[1].name_full()} {children[1].birthdate.format()}"}
+      - "children3_name_full_plus_birthdate": ${f"{ children[2].name_full() } { children[2].birthdate.format() }"}
+      - "children4_name_full_plus_birthdate": ${f"{ children[3].name_full() } { children[3].birthdate.format() }"}
+      - "previous_action_detail": ${ divorcejointpetition_attachment.safe_value("previous_action_detail") }
+      - "marriage_breakdown_date": ${ marriage_breakdown_date.format() }
+      - "request_divorce_nofault": ${ request_divorce_nofault }
+      - "request_separation_agreement_approval": ${ request_separation_agreement_approval }
+      - "request_merge_agreement": ${ request_merge_agreement }
+      - "request_survive_agreement": ${ request_survive_agreement }
+      - "users1_request_name_change": ${ users1_request_name_change }
+      - "users1_former_name_last": ${ users1_former_name_last }
+      - "users2_request_name_change": ${ users2_request_name_change }
+      - "users2_former_name_last": ${ users2_former_name_last }
+      - "additional_request": ${ additional_request }
+      - "additonal_request_detail": ${ additonal_request_detail }
+      - "signature_date": ${ signature_date }
+      # It's a signature: test which file version this is; leave empty unless it's the final version)
+      - "users2_petition_signature": ${ users[1].signature if i == "final" else '' }
+      # It's a signature: test which file version this is; leave empty unless it's the final version)
+      - "users1_petition_signature": ${ users[0].signature if i == "final" else '' }
+      - "users1_petition_signer_name_full": ${ users[0] }
+      - "users2_petition_signer_name_full": ${ users2_petition_signer_name_full }
+      - "users1_petition_signer_address_address": ${ users1_petition_signer_address_address }
+      - "users2_petition_signer_address_address": ${ users2_petition_signer_address_address }
+      - "users1_petition_signer_address_city": ${ users1_petition_signer_address_city }
+      - "users1_petition_signer_address_state": ${ users1_petition_signer_address_state }
+      - "users1_petition_signer_address_zip": ${ users1_petition_signer_address_zip }
+      - "users2_petition_signer_address_city": ${ users2_petition_signer_address_city }
+      - "users2_petition_signer_address_state": ${ users2_petition_signer_address_state }
+      - "users2_petition_signer_address_zip": ${ users2_petition_signer_address_zip }
+      - "users1_petition_signer_phone_number": ${ users1_petition_signer_phone_number }
+      - "users2_petition_signer_phone_number": ${ users2_petition_signer_phone_number }
+      - "attorneys1_bbo_number": ${ "{:,.2f}".format(attorneys1_bbo_number) }
+      - "attorneys2_bbo_number": ${ "{:,.2f}".format(attorneys2_bbo_number) }
+---
+code: |
+  divorcejointpetition.overflow_fields["previous_action_detail"].overflow_trigger = 252
+  divorcejointpetition.overflow_fields["previous_action_detail"].label = "List details for all previous actions"
+  divorcejointpetition.overflow_fields.gathered = True
+
+
+
