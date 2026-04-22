@@ -36,7 +36,7 @@ metadata:
       a. child support guidelines worksheet (CJD 304)
       b. findings and determinations for child support and post-secondary education (CJD 305)
   when_you_are_finished: |
-    File any remaining paperwork with the court registry and
+    File any remaining paperwork with the court registry and you will receive a notice with next steps from the court in the mail. You can also check the status of your case at [masscourts.org](https://www.masscourts.org)
   efiling_enabled: False
   integrated_efiling: False
   integrated_email_filing: False
@@ -84,7 +84,7 @@ metadata:
     - Divorce Filing fee: $200.00
     - Divorce Surcharge: $15.00
   update_notes: |
-    Divorce Joint Petition v2.0 - Fresh joint petition (initial filings) interview file for spring 26 handoff
+    Divorce Joint Petition v2.0 - Joint petition (initial filings) interview file for spring 2026 handoff
 ---
 code: |
   # This controls the default country and list of states in address field questions
@@ -130,6 +130,18 @@ code: |
   massachusetts_residency
   if massachusetts_residency == False:
     breakdown_in_massachusetts
+    if breakdown_in_massachusetts == False: 
+      cautionary_message_jurisdiction
+    elif couple_ever_lived_in_massachusetts == False: 
+      cautionary_message_jurisdiction
+  divorce_affirm
+  separation_agreement_reached
+  separation_agreement_documented
+  separation_agreement_format
+  if separation_agreement_format == "wait":
+    cautionary_message_delay_agreement
+  elif separation_agreement_format == "upload":
+    separation_agreement_upload
   nav.set_section("party_information")
   users.gather()
   set_parts(subtitle=str(users))
@@ -191,24 +203,34 @@ continue button field: divorcejointpetition_intro
 question: |
   Joint (1A) Divorce
 subquestion: |
-  This interview will help you jointly ask the court for a no-fault divorce.
+   **Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)**
+
+    This interview will help you jointly ask the court for a no-fault divorce.
   
-  Before you get started, please gather:
+    Before you get started, please gather:
   
-  1. Certified Copy of Marriage Certificate
-  2. Notarized Separation Agreement (if already prepared) 
-  3. Names, birthdays, and addresses for both parties and all minor children of the marriage
-  4. Monthly budget or finance tracking information
-  5. Recent pay stubs 
+    1. Certified Copy of Marriage Certificate
+    2. Notarized Separation Agreement (if already prepared) 
+    3. Names, birthdays, and addresses for both parties and all minor children of the marriage
+    4. Monthly budget or finance tracking information
+    5. Recent pay stubs 
+    
+    When you are finished, you will need to:
   
-  When you are finished, you will need to:
-  
-  1. File Notarized Separation Agreement (unless complete) 
-  2. File Certified Copy of Marriage Certificate (unless complete) 
-  3. File financial statements for each petitioner
-  4. If child support is being addressed or waived:
-    a. child support guidelines worksheet (CJD 304)
-    b. findings and determinations for child support and post-secondary education (CJD 305)
+    1. File Notarized Separation Agreement (unless complete) 
+    2. File Certified Copy of Marriage Certificate (unless complete) 
+    3. File financial statements for each petitioner
+    4. If child support is being addressed or waived:
+      a. child support guidelines worksheet (CJD 304)
+      b. findings and determinations for child support and post-secondary education (CJD 305)
+---
+##### Cautionary message screen template
+id: Cautionary validation template
+continue button field: cautionary_validation_message
+question: |
+  Confirm information
+subquestion: |
+  You entered (insert information summary here) and (custom warning accordingly). Are you sure you want to proceed? Alternative you are allowed to proceed without doing ___, but are you really sure?
 ---
 id: Party B name
 sets:
@@ -223,31 +245,144 @@ fields:
 ---
 id: legal marriage
 question: |
-  ${  users[0].name_full()  } and ${  users[1].name_full()  }
+  Confirm legal marriage
 subquestion: |
-  Legal marriage confirmation
+  Are ${  users[0].name_full()  } and ${  users[1].name_full()  } legally married? 
 fields: 
-  - "Are ${  users[0].name_full()  } and ${  users[1].name_full()  } legally married? " : legal_marriage
+  - " " : legal_marriage
     datatype: yesnoradio
 ---
 id: Confirm Massachusetts jurisdiction A
 question: |
   Massachusetts jurisdiction confirmation
+subquestion: |
+  Have either or both ${ users[0] } and ${ users[1] } lived in Massachusetts for at least one year?
 fields:
-  - "Have either or both ${ users[0] } and ${ users[1] } lived in Massachusetts for at least one year?": massachusetts_residency
+  - " ": massachusetts_residency
     datatype: yesnoradio
   
 ---
 id: Confirm Massachusetts jurisdiction B
 question: |
-  Massachusetts jurisdiction confirmation part II
+  Massachusetts jurisdiction confirmation
 fields:
-  - "Did the reason the marriage between ${ users[0] } and ${ users[1] } ended happen in Massachusetts?": breakdown_in_massachusetts
+  - "Did the reason the marriage of ${ users[0] } and ${ users[1] } ended happen in Massachusetts?": breakdown_in_massachusetts
     datatype: yesnoradio
+
 
   - "Have ${ users[0] } and ${ users[1] } ever lived in Massachusetts as a couple?": couple_ever_lived_in_massachusetts
     datatype: yesnoradio
+
 ---
+id: Cautionary message jurisdiction
+event: cautionary_message_jurisdiction
+question: |
+  Eligibility for Divorce in Massachusetts
+subquestion: |
+  You can file for divorce in Massachusetts if:
+  * You've lived in the state for 1 year, or;
+  * The reason the marriage ended happened in Massachusetts and you've lived in the state as a couple
+  
+  If you remain unsure whether you are eligible for divorce in Massachusetts, you may wish to speak to an attorney licensed to practice in MA to discuss your options. 
+  
+buttons: 
+  - Continue: continue
+  - Exit: exit
+---
+id: Divorce type
+question: |
+ Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)
+subquestion: | 
+  Do ${  users[0].name_full()  } and ${  users[1].name_full()  } both agree that you want to:
+fields:
+  - "get divorced": divorce_affirm
+    datatype: yesno
+  - "file together (jointly)": joint_petition_affirm
+    datatype: yesno
+    show if: divorce_affirm
+  - "file a complete, notarized separation agreement at the time of filing or within 90 days thereafter": notarize_affirm
+    datatype: yesno
+    show if: joint_petition_affirm
+---
+id: Agreement on major issues
+question: | 
+  Agreement on major issues
+subquestion: |
+  You will need to explain to the court how you will handle any issues related to your divorce. 
+  These issues may include:
+  
+  * Child support
+  * Parenting time
+  * Child custody
+  * Alimony
+  * Diving shared property (marital assets)
+  * Health insurance 
+
+    There are different ways to reach an agreement. Some negotiate on their own while others hire lawyers. Some use mediators to help settle the issues.
+  
+  **Do ${  users[0].name_full()  } and ${  users[1].name_full()  } agree on how to resolve all major issues, such as property division, child custody, and child support?**
+fields: 
+  - "We agree on the major issues": separation_agreement_reached
+    datatype: yesnoradio
+---
+id: Separation agreement status
+question: |
+  Separation agreement
+subquestion: |
+  You will need to write a separation agreement. 
+  
+  A separation agreement is a written contract between you and your spouse. It explains how you will handle any issues related to your divorce.
+
+  Both parties must sign the agreement and it must be notarized (signed by a notary).
+ 
+  A complete, notarized separation agreement is strongly encouraged but not required at the time of filing.
+  
+fields: 
+  - "We have prepared a detailed written separation agreement that fully captures our agreement on all relevant issues": separation_agreement_documented
+    datatype: yesnoradio
+    help: |
+      If you do not already have a complete written separation agreement you will be able to create one.
+---
+id: Separation agreement format
+question: |
+  Separation agreement format
+subquestion: |
+  Anyone filing a joint petition for divorce must file a separation agreement within 90 days of initial filing. 
+  The separation agreement must be notarized and should completely address all major issues such as property division, child custody, and child support. 
+  You are highly encouraged to submit a complete, notarized agreement with initial filing. 
+fields: 
+  - "How would you like to file your separation agreement?": separation_agreement_format
+    input type: radio
+    choices: 
+      - "Upload my complete, notarized separation agreement here": upload
+        show if: separation_agreement_documented
+      - "File my complete, notarized separation agreement with the registry later" : wait
+      - "Create a separation agreement using this interview tool": interview
+        show if: separation_agreement_documented == False
+---
+id: Upload agreement
+question: |
+  Upload separation agreement
+fields:
+  - "Upload agreement": separation_agreement_upload
+    datatype: file
+---
+id: Cautionary message notarized separation agreement
+continue button field: cautionary_message_delay_agreement
+question: |
+  Confirm information
+subquestion: |
+  You have indicated that you will file your notarized separation agreement later. Confirm that you understand:
+  
+  * You must file a separation agreement within 90 days of filing a joint petition for divorce (1A)
+  * Your separation agreement must be notarized
+  * Your separation agreement should address all issues such as property division, child custody, and child support
+
+---
+#Merger Separation Help Language
+#A separation agreement can be a binding contract between you and your spouse. This is a separation agreement that “survives” the divorce. Sometimes, it is not a separate contract and is not binding until the judge approves it. If the judge approves the agreement, it becomes part of the divorce judgment. This is a separation agreement that has “merged” with the divorce judgment.
+---
+####### Edit Line ######
 id: Marriage Details
 question: |
   Marriage Details
@@ -261,16 +396,11 @@ fields:
     datatype: date
   - "Marital home address": marital_home_address_on_one_line
 ---
-id: Children Information
-question: |
-  Children Information
-subquestion: |
-  Please list the names and birthdates of your children.
-fields:
-  - "Child 1 name and birthdate": children1_name_full_plus_birthdate
-  - "Child 2 name and birthdate": children2_name_full_plus_birthdate
-  - "Child 3 name and birthdate": children3_name_full_plus_birthdate
-  - "Child 4 name and birthdate": children4_name_full_plus_birthdate
+#id: Children Information
+#Ask children threshold questions
+# - Are there children of the marriage 
+# - If so, how many? 
+# - for child in children, name and birthdate
 ---
 id: Previous Actions
 question: |
@@ -363,7 +493,7 @@ fields:
   - "Attorney 1 BBO number": attorneys1_bbo_number
   - "Attorney 2 BBO number": attorneys2_bbo_number
 ---
-id: preview divorcejointpetition
+id: preview divorce joint petition
 question: |
   Preview your form before you sign it
 subquestion: |
@@ -461,7 +591,7 @@ code: |
   [user.address.address for user in users.complete_elements()]
   addresses_to_search = [user.address for user in users.complete_elements()]
 ---
-id: divorcejointpetition review screen
+id: divorce joint petition review screen
 event: review_divorcejointpetition
 question: |
   Review your answers
@@ -575,7 +705,7 @@ edit:
 confirm: True
 
 ---
-id: download divorcejointpetition
+id: download divorce joint petition
 event: divorcejointpetition_download
 question: |
   All done
