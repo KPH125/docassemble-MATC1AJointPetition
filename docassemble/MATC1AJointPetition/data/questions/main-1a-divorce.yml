@@ -127,15 +127,28 @@ code: |
   user_ask_role = "plaintiff"
   nav.set_section("divorce_eligibility")
   legal_marriage
+  if legal_marriage == False: 
+    cautionary_message_divorce
+  marriage_certificate_upload
   massachusetts_residency
   if massachusetts_residency == False:
-    breakdown_in_massachusetts
-    if breakdown_in_massachusetts == False: 
+    couple_ever_lived_in_massachusetts
+    if couple_ever_lived_in_massachusetts == False: 
       cautionary_message_jurisdiction
-    elif couple_ever_lived_in_massachusetts == False: 
+    elif breakdown_in_massachusetts == False: 
       cautionary_message_jurisdiction
   divorce_affirm
+  if divorce_affirm == False:
+    cautionary_message_divorce_type
+  elif joint_petition_affirm == False:
+    cautionary_message_divorce_type
+  elif notarize_affirm == False:
+    cautionary_message_divorce_type
   separation_agreement_reached
+  if separation_agreement_reached == False:
+    parties_will_negotiate
+    if parties_will_negotiate == False:
+      cautionary_message_divorce_type
   separation_agreement_documented
   separation_agreement_format
   if separation_agreement_format == "wait":
@@ -198,16 +211,32 @@ code: |
   users1_petition_signature
   divorcejointpetition_download
 ---
-id: Joint1ADivorce 
+terms:
+  separation agreement: |
+    A written document listing all things the parties agree on in their divorce, like child support, taxes, parenting time, and property division
+  notarize: |
+    process where a notary public witnesses signatures and places a seal on document to ensure authenticity
+  notarized: |
+    a document that has been signed in the presence of a notary public and the notary has placed their seal upon it
+  child support guidelines: |
+    Mathematical formula used by the court to determine an appropriate amount of child support  
+  marital home: |
+   The last residential address shared by divorcing parties
+  financial statement: |
+    A form summarizing a party's estimated income and expenses, assets, liabilities, and health insurance, etc. 
+  divorce absolute: |
+    The date a divorce becomes final
+---
+id: Joint 1A Divorce Intro
 continue button field: divorcejointpetition_intro
 question: |
-  Joint (1A) Divorce
+   **Joint petition for divorce under [G.L. c. 208, § 1A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)**
 subquestion: |
-   **Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)**
-
     This interview will help you jointly ask the court for a no-fault divorce.
+
+    You should file for a 1A divorce when both spouses agree the marriage has irretrievably broken down and can't continue.
   
-    Before you get started, please gather:
+    **Before you get started, please gather:**
   
     1. Certified Copy of Marriage Certificate
     2. Notarized Separation Agreement (if already prepared) 
@@ -215,22 +244,17 @@ subquestion: |
     4. Monthly budget or finance tracking information
     5. Recent pay stubs 
     
-    When you are finished, you will need to:
+    **When you are finished, you will need to:**
   
-    1. File Notarized Separation Agreement (unless complete) 
-    2. File Certified Copy of Marriage Certificate (unless complete) 
-    3. File financial statements for each petitioner
-    4. If child support is being addressed or waived:
-      a. child support guidelines worksheet (CJD 304)
-      b. findings and determinations for child support and post-secondary education (CJD 305)
----
-##### Cautionary message screen template
-id: Cautionary validation template
-continue button field: cautionary_validation_message
-question: |
-  Confirm information
-subquestion: |
-  You entered (insert information summary here) and (custom warning accordingly). Are you sure you want to proceed? Alternative you are allowed to proceed without doing ___, but are you really sure?
+    1. File Notarized Separation Agreement (unless uploaded) 
+    2. File Certified Copy of Marriage Certificate (unless uploaded) 
+    3. File financial statements for each petitioner (unless completed)
+     
+    If child support is being addressed or waived:
+    
+    1. File child support guidelines worksheet (CJ-D 304)
+    2. File findings and determinations for child support and post-secondary education (CJ-D 305)
+
 ---
 id: Party B name
 sets:
@@ -246,63 +270,135 @@ fields:
 id: legal marriage
 question: |
   Confirm legal marriage
-subquestion: |
-  Are ${  users[0].name_full()  } and ${  users[1].name_full()  } legally married? 
 fields: 
-  - " " : legal_marriage
+  - "Are ${  users[0].name_full()  } and ${  users[1].name_full()  } legally married?" : legal_marriage
     datatype: yesnoradio
+---
+id: upload marriage proof
+question: |
+  Upload marriage certificate
+subquestion: |
+  Submitting a certified copy of your marriage certificate is strongly encouraged at the time of initial filing. Upload a copy here to include it with your filings. Keep any original copies as the court may ask for a physical certified copy. 
+  
+fields:
+  - "Upload marriage certificate": marriage_certificate_upload
+    datatype: file
+    required: False
+under: 
+  This document will likely need to be filed before the court can give you a hearing date or hear your case.
+---
+id: cautionary message legal marriage
+question: Legal marriage
+subquestion: |
+  You must be legally married in order to be granted a divorce in Massachusetts. 
+
+sets: cautionary_message_divorce
+buttons: 
+  - Keep going: 
+      code: |
+        cautionary_message_divorce = True
+  - Restart: restart
+  - Exit: exit
 ---
 id: Confirm Massachusetts jurisdiction A
 question: |
   Massachusetts jurisdiction confirmation
-subquestion: |
-  Have either or both ${ users[0] } and ${ users[1] } lived in Massachusetts for at least one year?
 fields:
-  - " ": massachusetts_residency
+  - "Have either or both ${ users[0] } and ${ users[1] } lived in Massachusetts for at least one year?": massachusetts_residency
     datatype: yesnoradio
-  
 ---
 id: Confirm Massachusetts jurisdiction B
 question: |
   Massachusetts jurisdiction confirmation
 fields:
-  - "Did the reason the marriage of ${ users[0] } and ${ users[1] } ended happen in Massachusetts?": breakdown_in_massachusetts
+  - "Did ${ users[0] } and ${ users[1] } ever live in Massachusetts while you were married?": couple_ever_lived_in_massachusetts
     datatype: yesnoradio
-
-
-  - "Have ${ users[0] } and ${ users[1] } ever lived in Massachusetts as a couple?": couple_ever_lived_in_massachusetts
+  - "Did the cause for the divorce happen in Massachusetts?": breakdown_in_massachusetts
     datatype: yesnoradio
-
 ---
 id: Cautionary message jurisdiction
-event: cautionary_message_jurisdiction
 question: |
   Eligibility for Divorce in Massachusetts
 subquestion: |
   You can file for divorce in Massachusetts if:
+  
   * You've lived in the state for 1 year, or;
   * The reason the marriage ended happened in Massachusetts and you've lived in the state as a couple
   
-  If you remain unsure whether you are eligible for divorce in Massachusetts, you may wish to speak to an attorney licensed to practice in MA to discuss your options. 
-  
+  If you remain unsure whether you are eligible for divorce in Massachusetts, you may wish to speak to an attorney licensed to practice in Massachusetts to discuss your options. 
+sets: cautionary_message_jurisdiction  
 buttons: 
-  - Continue: continue
+  - Keep going: 
+      code: |
+        cautionary_message_jurisdiction = True
+  - Restart: restart
   - Exit: exit
 ---
 id: Divorce type
 question: |
  Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)
 subquestion: | 
-  Do ${  users[0].name_full()  } and ${  users[1].name_full()  } both agree that you want to:
+  In Massachusetts, a divorce can be filed as *no-fault* or *fault*, and can be *contested* or *uncontested*.
+
+  A joint petition for divorce, informally called a "1A," is an *uncontested no-fault* divorce filed when: 
+  
+  * the parties agree they want a divorce; and 
+  * the parties agree or want to work together on how to resolve the major issues in the divorce. 
+  
+  Do **both** ${  users[0].name_full()  } and ${  users[1].name_full()  } **agree** that you want to:
 fields:
-  - "get divorced": divorce_affirm
-    datatype: yesno
-  - "file together (jointly)": joint_petition_affirm
-    datatype: yesno
+  - "Get divorced": divorce_affirm
+    datatype: yesnoradio
+  - "File together (jointly)": joint_petition_affirm
+    datatype: yesnoradio
     show if: divorce_affirm
-  - "file a complete, notarized separation agreement at the time of filing or within 90 days thereafter": notarize_affirm
-    datatype: yesno
-    show if: joint_petition_affirm
+  - "File a complete, notarized separation agreement at the time of filing or within 90 days thereafter": notarize_affirm
+    datatype: yesnoradio
+    show if: joint_petition_affirm 
+under: |
+ [**Which type of divorce should I file?**](https://www.mass.gov/decision-tree/which-type-of-divorce-should-i-file)
+---
+id: Cautionary message divorce type 
+question: |
+  Confirm divorce type:
+  Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)
+subquestion: |
+  A joint uncontested (1A) divorce petition is one of several different types of divorce in Massachusetts.
+  
+  You may file for a 1A divorce when both spouses **agree** the marriage has irretrievably broken down and cannot continue.
+
+  When you file for divorce under Section 1A you must file a complete, notarized separation agreement at the time of filing or within 90 days thereafter. You are highly encouraged to file the separation agreement when you file.  
+  
+  In Massachusetts, a divorce can be filed as “no-fault” or “fault,” and can be contested or uncontested. 
+
+sets: cautionary_message_divorce_type
+buttons: 
+  - Keep going: 
+      code: |
+        cautionary_message_divorce_type = True
+  - Restart: restart
+  - Exit: exit
+under: |
+      [**Which type of divorce should I file?**](https://www.mass.gov/decision-tree/which-type-of-divorce-should-i-file)
+---
+id: Cautionary message jurisdiction
+question: |
+  Eligibility for Divorce in Massachusetts
+subquestion: |
+  You can file for divorce in Massachusetts if:
+  
+  * You've lived in the state for 1 year, or;
+  * The reason the marriage ended happened in Massachusetts and you've lived in the state as a couple
+  
+  If you remain unsure whether you are eligible for divorce in Massachusetts, you may wish to speak to an attorney licensed to practice in Massachusetts to discuss your options. 
+
+sets: cautionary_message_jurisdiction
+buttons: 
+  - Keep going: 
+      code: |
+        cautionary_message_jurisdiction = True
+  - Restart: restart
+  - Exit: exit
 ---
 id: Agreement on major issues
 question: | 
@@ -315,40 +411,61 @@ subquestion: |
   * Parenting time
   * Child custody
   * Alimony
-  * Diving shared property (marital assets)
+  * Dividing shared property (marital assets)
   * Health insurance 
-
-    There are different ways to reach an agreement. Some negotiate on their own while others hire lawyers. Some use mediators to help settle the issues.
   
   **Do ${  users[0].name_full()  } and ${  users[1].name_full()  } agree on how to resolve all major issues, such as property division, child custody, and child support?**
 fields: 
   - "We agree on the major issues": separation_agreement_reached
     datatype: yesnoradio
 ---
+id: Willing to negotiate agreement
+question: |
+  Willingness to negotiate agreement
+subquestion: |
+  Are ${  users[0].name_full()  } and ${  users[1].name_full()  } willing to work together to come to agreement on how you will handle any issues related to your divorce? 
+
+  These issues may include:
+  
+  * Child support
+  * Parenting time
+  * Child custody
+  * Alimony
+  * Dividing shared property (marital assets)
+  * Health insurance 
+  
+fields: 
+  - "We will work together to come to agreement": parties_will_negotiate
+    datatype: yesnoradio
+under: |   
+  There are different ways to reach an agreement. Some negotiate on their own while others hire lawyers. Some use mediators to help settle the issues. [Alternative Dispute Resolution](https://www.mass.gov/alternative-dispute-resolution)
+  
+  You may prepare an agreement with this tool if the parties are willing to work together to come to agreement. 
+---
 id: Separation agreement status
 question: |
   Separation agreement
 subquestion: |
-  You will need to write a separation agreement. 
+  You will need to write a {separation agreement}. 
   
-  A separation agreement is a written contract between you and your spouse. It explains how you will handle any issues related to your divorce.
+  Your Separation agreement tells the court how you will handle any issues related to your divorce.
 
-  Both parties must sign the agreement and it must be notarized (signed by a notary).
+  Both parties must sign the agreement in the presence of a {notary}, who will mark the document to validate your signatures. 
  
-  A complete, notarized separation agreement is strongly encouraged but not required at the time of filing.
+  A complete, {notarized} separation agreement is strongly encouraged at the time of filing.
   
 fields: 
   - "We have prepared a detailed written separation agreement that fully captures our agreement on all relevant issues": separation_agreement_documented
     datatype: yesnoradio
     help: |
-      If you do not already have a complete written separation agreement you will be able to create one.
+      If you do not already have a complete written separation agreement you will be able to create one using this tool.
 ---
 id: Separation agreement format
 question: |
   Separation agreement format
 subquestion: |
   Anyone filing a joint petition for divorce must file a separation agreement within 90 days of initial filing. 
-  The separation agreement must be notarized and should completely address all major issues such as property division, child custody, and child support. 
+  The separation agreement must be {notarized} and should completely address all major issues such as property division, child custody, and child support. 
   You are highly encouraged to submit a complete, notarized agreement with initial filing. 
 fields: 
   - "How would you like to file your separation agreement?": separation_agreement_format
@@ -377,12 +494,12 @@ subquestion: |
   * You must file a separation agreement within 90 days of filing a joint petition for divorce (1A)
   * Your separation agreement must be notarized
   * Your separation agreement should address all issues such as property division, child custody, and child support
-
 ---
 #Merger Separation Help Language
 #A separation agreement can be a binding contract between you and your spouse. This is a separation agreement that “survives” the divorce. Sometimes, it is not a separate contract and is not binding until the judge approves it. If the judge approves the agreement, it becomes part of the divorce judgment. This is a separation agreement that has “merged” with the divorce judgment.
 ---
-####### Edit Line ######
+####### Interview Order Curating Line #####
+####### Question Editing Line ######
 id: Marriage Details
 question: |
   Marriage Details
