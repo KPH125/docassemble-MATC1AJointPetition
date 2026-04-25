@@ -11,7 +11,7 @@ Interviews needed if children:
 - Findings and Determnations for Child Support and Post-Secondary Education (CJD 305) *cout wants always starting 2026
 
 Additional filings:
-These forms are not required at initial filing but bay need to be filed before hearing can be assigned date or occur
+These forms are not required at initial filing but may need to be filed before hearing can be assigned date or occur
 - Financial statement (per u in users, u=2)
 - Separation Agreement 
 - Affidavit of indigency (per u_indigent in users )
