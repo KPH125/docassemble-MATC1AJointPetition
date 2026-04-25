@@ -190,7 +190,7 @@ code: |
   
   nav.set_section("children_information")
   children_of_marriage
-  if children_of_marriage
+  if children_of_marriage:
     users1_number_of_custodial_children
   
   nav.set_section("court_requests")  
