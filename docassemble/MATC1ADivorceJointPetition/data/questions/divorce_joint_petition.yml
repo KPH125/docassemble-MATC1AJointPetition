@@ -271,13 +271,12 @@ buttons:
 id: Divorce type
 question: |
  Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)
-subquestion: | 
-  In Massachusetts, a divorce can be filed as *no-fault* or *fault*, and can be *contested* or *uncontested*.
+subquestion: |
+  A joint petition for divorce (often called a "1A") is a no-fault divorce filed when:
 
-  A joint petition for divorce, informally called a "1A," is an *uncontested no-fault* divorce filed when: 
-  
-  * the parties agree they want a divorce; and 
-  * the parties agree or want to work together on how to resolve the major issues in the divorce. 
+  * both spouses want a divorce;
+  * both spouses want to file together; and
+  * both spouses have a complete, notarized separation agreement, or will file one within 90 days.
   
   Do **both** ${  users[0].name_full()  } and ${  users[1].name_full()  } **agree** that you want to:
 fields:
