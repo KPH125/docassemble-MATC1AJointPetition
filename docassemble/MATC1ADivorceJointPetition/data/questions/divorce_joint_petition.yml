@@ -701,6 +701,11 @@ subquestion: |
   ${ action_button_html(url_action('review_divorcejointpetition'), label='Edit answers', color='info') }
   
   When your answers are correct, continue to sign your forms.
+
+  % if separation_agreement_format == "interview":
+  **Before filing your separation agreement:** Both spouses must sign it in
+  front of a notary. The signatures entered here do not replace notarization.
+  % endif
 continue button field: divorcejointpetition_preview_question    
 ---
 code: |
