@@ -353,10 +353,38 @@ data:
 ---
 id: choose forms to include
 question: |
-  Which forms do you want to prepare now?
+  Which financial statement(s) do you want to prepare now?
+subquestion: |
+  ${ collapse_template(financial_statement_decision_help) }
 fields:
-  - Prepare a financial statement: include_financial_statement
-    datatype: yesnoradio
+  - Whose financial statement do you want to prepare now?: financial_statement_scope
+    datatype: radio
+    choices:
+      - Both spouses: both
+      - "Only ${ users[0] }": spouse_1_only
+      - "Only ${ users[1] }": spouse_2_only
+      - Neither spouse right now: neither
+
+---
+code: |
+  include_financial_statement_spouse_1 = financial_statement_scope in ("both", "spouse_1_only")
+  include_financial_statement_spouse_2 = financial_statement_scope in ("both", "spouse_2_only")
+  include_financial_statement = financial_statement_scope != "neither"
+  users[0].making_statement_for = include_financial_statement_spouse_1
+  users[1].making_statement_for = include_financial_statement_spouse_2
+
+---
+template: financial_statement_decision_help
+subject: |
+  How to decide about financial statements
+content: |
+  You do **not** have to file financial statements with your initial Joint Petition (1A).
+
+  Best practice is to file a signed financial statement for each spouse before your case is scheduled.
+
+  Financial statements are signed under penalty of perjury, so accuracy matters. The court relies on these forms when making decisions. If your circumstances change, you must file an updated financial statement accordingly.
+
+  Under **Supplemental Probate and Family Court Rule 401**, each party in a divorce must file a signed financial statement within **45 days after service of summons**, or sooner if a hearing or pretrial conference is scheduled.
 ---
 id: joint petition interview order
 code: |
