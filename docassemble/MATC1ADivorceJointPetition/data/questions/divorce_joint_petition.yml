@@ -97,6 +97,15 @@ code: |
 
   users.gather()
   set_parts(subtitle=str(users))
+
+  # Collect counsel information only for the represented spouse or spouses.
+  # Attorney signatures are handled separately from this packet intake flow.
+  users[0].has_attorney
+  attorneys.there_are_any = users[0].has_attorney or users[1].has_attorney
+  if users[0].has_attorney:
+    attorneys[0].name.first
+  if users[1].has_attorney:
+    attorneys[1].name.first
   
   nav.set_section("children_information")
   children_of_marriage
@@ -706,6 +715,15 @@ continue button field: divorcejointpetition_preview_question
 code: |
   signature_fields = ['users[0].signature', 'users[1].signature']
 ---
+code: |
+  def attorney_bbo_number(index):
+    if not defined("attorneys.there_are_any") or not attorneys.there_are_any:
+      return ""
+    try:
+      return attorneys[index].bbo_number
+    except (AttributeError, IndexError):
+      return ""
+---
 #code: |
 #  if users[0].has_attorney:
 #    users1_petition_signature = users[0].signature
@@ -869,14 +887,6 @@ review:
     button: |
       **users1_petition_signature**:
       ${ users1_petition_signature }
-  - Edit: attorneys1_bbo_number
-    button: |
-      **Attorney 1 BBO number**:
-      ${ attorneys1_bbo_number }
-  - Edit: attorneys2_bbo_number
-    button: |
-      **Attorney 2 BBO number**:
-      ${ attorneys2_bbo_number }
 ---
 id: edit users
 continue button field: users.revisit
@@ -989,8 +999,8 @@ attachment:
       - "users2_petition_signer_address_zip": ${ users[1].address.zip }
       - "users1_petition_signer_phone_number": ${ users[0].phone_number }
       - "users2_petition_signer_phone_number": ${ users[1].phone_number }
-      - "attorneys1_bbo_number": ${ attorneys[0].bbo_number }
-      - "attorneys2_bbo_number": ${ attorneys[1].bbo_number }
+      - "attorneys1_bbo_number": ${ attorney_bbo_number(0) }
+      - "attorneys2_bbo_number": ${ attorney_bbo_number(1) }
 ---
 attachment:
   name: affidavit
