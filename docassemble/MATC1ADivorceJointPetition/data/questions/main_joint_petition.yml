@@ -407,7 +407,12 @@ code: |
     interview_order_financial_statement
 
   if include_separation_agreement:
+    # The parent interview has already collected this shared child information.
+    has_children = children_of_marriage
+    if has_children:
+      children.target_number = len(children)
     interview_order_a_divorce_agreement
+    set_petition_merger_survival_from_agreement
 
   if include_findings_and_determinations:
     set_findings_and_determinations_defaults
@@ -422,6 +427,16 @@ code: |
     ask_affidavit_questions
 
   joint_petition_interview_order = True
+---
+depends on:
+  - has_children
+  - provisions_that_merge
+code: |
+  request_merge_agreement = (
+    has_children or not provisions_that_merge.all_false()
+  )
+  request_survive_agreement = True
+  set_petition_merger_survival_from_agreement = True
 ---
 code: |
   court_name = str(trial_court)

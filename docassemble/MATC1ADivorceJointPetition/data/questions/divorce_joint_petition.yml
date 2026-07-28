@@ -105,7 +105,9 @@ code: |
     set_parts(subtitle=str(children))
     users1_number_of_custodial_children
   nav.set_section("court_requests")  
-  request_merge_agreement
+  if separation_agreement_format != "interview":
+    request_merge_agreement
+    request_survive_agreement
   users[0].name_change
   additional_request
   
@@ -822,10 +824,12 @@ review:
       **When did the marriage breakdown occur?**:
       ${ marriage_breakdown_date }
   - Edit: request_merge_agreement
+    show if: separation_agreement_format != "interview"
     button: |
       **Request merge agreement**:
       ${ request_merge_agreement }
   - Edit: request_survive_agreement
+    show if: separation_agreement_format != "interview"
     button: |
       **Request survive agreement**:
       ${ request_survive_agreement }
