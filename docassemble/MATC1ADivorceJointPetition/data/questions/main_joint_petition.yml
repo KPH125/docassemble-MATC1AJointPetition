@@ -349,7 +349,7 @@ data:
 ---
 id: choose forms to include
 question: |
-  Which forms do you want to prepare now?
+  Which financial statement(s) do you want to prepare now?
 subquestion: |
   ${ collapse_template(financial_statement_decision_help) }
 fields:
