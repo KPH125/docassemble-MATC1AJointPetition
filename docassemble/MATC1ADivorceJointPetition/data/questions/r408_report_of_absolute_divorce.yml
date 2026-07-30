@@ -1,0 +1,231 @@
+---
+code: |
+  users1_is_plaintiff = True
+  users1_is_defendant = False
+  users2_is_plaintiff = True
+  users2_is_defendant = False
+---
+code: |
+  users1_name_last_after_divorce = users[0].former_name_last if users[0].name_change else users[0].name.last
+---
+code: |
+  users2_name_last_after_divorce = users[1].former_name_last if users[1].name_change else users[1].name.last
+---
+code: |
+  marriage_place = marriage_location
+---
+code: |
+  judgment_divorce = True
+---
+code: |
+  divorce_grounds = "Irretrievable Breakdown"
+---
+code: |
+  if not defined("users1_gender"):
+    if defined(users[0].attr_name("gender")) and users[0].gender:
+      users1_gender = str(users[0].gender).lower()
+    elif defined(users[0].attr_name("gender_male")) and users[0].gender_male:
+      users1_gender = "male"
+    elif defined(users[0].attr_name("gender_female")) and users[0].gender_female:
+      users1_gender = "female"
+  if not defined("users2_gender"):
+    if defined(users[1].attr_name("gender")) and users[1].gender:
+      users2_gender = str(users[1].gender).lower()
+    elif defined(users[1].attr_name("gender_male")) and users[1].gender_male:
+      users2_gender = "male"
+    elif defined(users[1].attr_name("gender_female")) and users[1].gender_female:
+      users2_gender = "female"
+---
+code: |
+  if not defined("users1_ssn_last_four") and defined(users[0].attr_name("ssn")) and users[0].ssn:
+    users1_ssn_last_four = str(users[0].ssn)[-4:]
+  if not defined("users2_ssn_last_four") and defined(users[1].attr_name("ssn")) and users[1].ssn:
+    users2_ssn_last_four = str(users[1].ssn)[-4:]
+---
+code: |
+  users1_name_last_at_birth = users[0].former_name_last if users[0].name_change else users[0].name.last
+---
+code: |
+  users2_name_last_at_birth = users[1].former_name_last if users[1].name_change else users[1].name.last
+---
+code: |
+  need_r408_demographics = (
+    not showifdef("users1_gender")
+    or not showifdef("users2_gender")
+    or not showifdef("users1_ssn_last_four")
+    or not showifdef("users2_ssn_last_four")
+  )
+---
+code: |
+  need_r408_marriage_numbers = (
+    not defined("users1_marriage_number")
+    or not defined("users2_marriage_number")
+  )
+---
+code: |
+  need_r408_addendum = len(children) > 5
+---
+code: |
+  users1_gender_male = users1_gender == "male"
+  users1_gender_female = users1_gender == "female"
+  users2_gender_male = users2_gender == "male"
+  users2_gender_female = users2_gender == "female"
+---
+code: |
+  if children_of_marriage:
+    children_of_marriage_number = len(children)
+  else:
+    children_of_marriage_number = 0
+---
+code: |
+  r408_children_name_full = ["", "", "", "", ""]
+  r408_children_birthdate = ["", "", "", "", ""]
+  for idx in range(min(len(children), 5)):
+    r408_children_name_full[idx] = str(children[idx])
+    if defined(children[idx].attr_name("birthdate")):
+      r408_children_birthdate[idx] = children[idx].birthdate.format()
+---
+id: r408 demographics
+if: need_r408_demographics
+question: |
+  Details for the R408 report
+subquestion: |
+  We only need any R408 details that were not already collected.
+validation code: |
+  import re
+  if defined("users1_ssn_last_four") and (not re.fullmatch(r"\d{4}", str(users1_ssn_last_four))):
+    validation_error("Enter exactly 4 digits.", field="users1_ssn_last_four")
+  if defined("users2_ssn_last_four") and (not re.fullmatch(r"\d{4}", str(users2_ssn_last_four))):
+    validation_error("Enter exactly 4 digits.", field="users2_ssn_last_four")
+fields:
+  - "${ users[0] } sex": users1_gender
+    datatype: radio
+    choices:
+      - Male: male
+      - Female: female
+    show if: not showifdef("users1_gender")
+  - "${ users[1] } sex": users2_gender
+    datatype: radio
+    choices:
+      - Male: male
+      - Female: female
+    show if: not showifdef("users2_gender")
+  - "${ users[0] } Social Security Number (last 4 digits)": users1_ssn_last_four
+    input type: tel
+    minlength: 4
+    maxlength: 4
+    hint: 4 digits
+    show if: not showifdef("users1_ssn_last_four")
+  - "${ users[1] } Social Security Number (last 4 digits)": users2_ssn_last_four
+    input type: tel
+    minlength: 4
+    maxlength: 4
+    hint: 4 digits
+    show if: not showifdef("users2_ssn_last_four")
+---
+id: r408 prior marriages and birth names
+if: need_r408_marriage_numbers
+question: |
+  More details for the R408 report
+fields:
+  - "Number of times ${ users[0] } has been married (including this marriage)": users1_marriage_number
+    datatype: integer
+    min: 1
+    default: 1
+    show if: not defined("users1_marriage_number")
+  - "Number of times ${ users[1] } has been married (including this marriage)": users2_marriage_number
+    datatype: integer
+    min: 1
+    default: 1
+    show if: not defined("users2_marriage_number")
+---
+id: r408 additional children info
+if: need_r408_addendum
+question: |
+  Additional children or other details for R408
+subquestion: |
+  If there are more than 5 children of this marriage, list the additional names and birthdates here. You can also include any other relevant details.
+fields:
+  - "Additional R408 details": r408_addendum
+    input type: area
+    required: False
+---
+id: interview order r408
+code: |
+  users[0].birthdate
+  users[1].birthdate
+  if children_of_marriage:
+    users2_number_of_custodial_children
+  else:
+    users1_number_of_custodial_children = 0
+    users2_number_of_custodial_children = 0
+  if need_r408_demographics:
+    r408_demographics
+  if need_r408_marriage_numbers:
+    r408_prior_marriages_and_birth_names
+  if need_r408_addendum:
+    r408_additional_children_info
+  interview_order_r408 = True
+---
+objects:
+  - r408_attachment: ALDocument.using(title="Report of Absolute Divorce or Annulment (R408)", filename="r408", enabled=True, has_addendum=False)
+---
+attachment:
+  name: r408
+  filename: r408
+  variable name: r408_attachment[i]
+  skip undefined: True
+  pdf template file: r408.pdf
+  fields:
+    - "judgment_divorce": ${ judgment_divorce }
+    - "docket_number": ${ docket_number }
+    - "trial_court": ${ str(trial_court) }
+    - "marriage_place": ${ marriage_place }
+    - "marriage_date": ${ marriage_date.format() }
+    - "divorce_grounds": ${ divorce_grounds }
+    - "users1_is_plaintiff": ${ users1_is_plaintiff }
+    - "users1_name_first": ${ users[0].name.first }
+    - "users1_name_middle": ${ users[0].name.middle }
+    - "users1_name_last": ${ users[0].name.last }
+    - "users1_is_defendant": ${ users1_is_defendant }
+    - "users1_name_last_after_divorce": ${ users1_name_last_after_divorce }
+    - "users1_name_last_at_birth": ${ users1_name_last_at_birth }
+    - "users1_birthdate": ${ users[0].birthdate.format() }
+    - "users1_gender_male": ${ users1_gender_male }
+    - "users1_gender_female": ${ users1_gender_female }
+    - "users1_marriage_number": ${ users1_marriage_number }
+    - "users1_number_of_custodial_children": ${ users1_number_of_custodial_children }
+    - "users1_ssn_last_four": ${ users1_ssn_last_four }
+    - "users1_address_address": ${ users[0].address.address }
+    - "users1_address_city": ${ users[0].address.city }
+    - "users1_address_state": ${ users[0].address.state }
+    - "users1_address_zip": ${ users[0].address.zip }
+    - "users2_is_plaintiff": ${ users2_is_plaintiff }
+    - "users2_name_first": ${ users[1].name.first }
+    - "users2_name_middle": ${ users[1].name.middle }
+    - "users2_name_last": ${ users[1].name.last }
+    - "users2_is_defendant": ${ users2_is_defendant }
+    - "users2_name_last_after_divorce": ${ users2_name_last_after_divorce }
+    - "users2_name_last_at_birth": ${ users2_name_last_at_birth }
+    - "users2_birthdate": ${ users[1].birthdate.format() }
+    - "users2_gender_male": ${ users2_gender_male }
+    - "users2_gender_female": ${ users2_gender_female }
+    - "users2_ssn_last_four": ${ users2_ssn_last_four }
+    - "users2_number_of_custodial_children": ${ users2_number_of_custodial_children }
+    - "users2_marriage_number": ${ users2_marriage_number }
+    - "users2_address_address": ${ users[1].address.address }
+    - "users2_address_city": ${ users[1].address.city }
+    - "users2_address_zip": ${ users[1].address.zip }
+    - "users2_address_state": ${ users[1].address.state }
+    - "children1_name_full": ${ r408_children_name_full[0] }
+    - "children1_birthdate": ${ r408_children_birthdate[0] }
+    - "children_of_marriage_number": ${ children_of_marriage_number }
+    - "children2_name_full": ${ r408_children_name_full[1] }
+    - "children2_birthdate": ${ r408_children_birthdate[1] }
+    - "children3_name_full": ${ r408_children_name_full[2] }
+    - "children3_birthdate": ${ r408_children_birthdate[2] }
+    - "children4_name_full": ${ r408_children_name_full[3] }
+    - "children4_birthdate": ${ r408_children_birthdate[3] }
+    - "children5_name_full": ${ r408_children_name_full[4] }
+    - "children5_birthdate": ${ r408_children_birthdate[4] }
+    - "r408_addendum": ${ r408_addendum }
