@@ -281,49 +281,73 @@ buttons:
 ---
 id: Divorce type
 question: |
- Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)
+  Is a 1A divorce right for you?
 subquestion: |
-  A joint petition for divorce (often called a "1A") is a no-fault divorce filed when:
+  A joint petition, or "1A," is a no-fault divorce that both spouses file
+  together. It asks you to file a notarized {separation agreement}, either when
+  you file or within 90 days.
 
-  * both spouses want a divorce;
-  * both spouses want to file together; and
-  * both spouses have a complete, notarized separation agreement, or will file one within 90 days.
-  
-  Do **both** ${  users[0].name_full()  } and ${  users[1].name_full()  } **agree** that you want to:
+  **All three statements below must be true to file a 1A divorce.** Check each
+  one that is true for ${ users[0].familiar() } and ${ users[1].familiar() }.
+  Leave a box unchecked if it is not true — the next screen explains your options.
 fields:
-  - "Get divorced": divorce_affirm
-    datatype: yesnoradio
-  - "File together (jointly)": joint_petition_affirm
-    datatype: yesnoradio
-    show if: divorce_affirm
-  - "File a complete, notarized separation agreement at the time of filing or within 90 days thereafter": notarize_affirm
-    datatype: yesnoradio
-    show if: joint_petition_affirm 
+  - no label: divorce_type_affirmations
+    datatype: checkboxes
+    choices:
+      - "We both want to get divorced": want_divorce
+      - "We both want to file together (jointly)": file_jointly
+      - "We will file a notarized separation agreement, at filing or within 90 days": will_notarize
+    none of the above: False
 under: |
- [**Which type of divorce should I file?**](https://www.mass.gov/decision-tree/which-type-of-divorce-should-i-file)
+  [**Which type of divorce should I file?**](https://www.mass.gov/decision-tree/which-type-of-divorce-should-i-file)
+
+  [**G.L. c. 208, § 1A**](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)
 ---
-id: Cautionary message divorce type 
+comment: |
+  The three statements are collected as one checkbox list so they render as a
+  full width list instead of being squeezed into the input column. The
+  eligibility logic still reads them one at a time.
+code: |
+  divorce_affirm = divorce_type_affirmations["want_divorce"]
+  joint_petition_affirm = divorce_type_affirmations["file_jointly"]
+  notarize_affirm = divorce_type_affirmations["will_notarize"]
+---
+id: Cautionary message divorce type
 question: |
-  Confirm divorce type:
-  Joint petition for divorce under [G.L. c. 208, § 1 A](https://malegislature.gov/Laws/GeneralLaws/PartII/TitleIII/Chapter208/Section1a)
+  A 1A divorce may not fit
 subquestion: |
-  A joint uncontested (1A) divorce petition is one of several different types of divorce in Massachusetts.
-  
-  You may file for a 1A divorce when both spouses **agree** the marriage has irretrievably broken down and cannot continue.
+  % if not divorce_affirm:
+  You did not check that you both want to get divorced.
+  % endif
+  % if not joint_petition_affirm:
+  You did not check that you both want to file together.
+  % endif
+  % if not notarize_affirm:
+  You did not check that you will file a notarized separation agreement.
+  % endif
+  % if divorce_affirm and joint_petition_affirm and notarize_affirm:
+  You said you are not willing to work out an agreement together.
+  % endif
 
-  When you file for divorce under Section 1A you must file a complete, notarized separation agreement at the time of filing or within 90 days thereafter. You are highly encouraged to file the separation agreement when you file.  
-  
-  In Massachusetts, a divorce can be filed as “no-fault” or “fault,” and can be contested or uncontested. 
+  To file a 1A divorce, all of these must be true. A 1A divorce is for couples who
+  agree about ending the marriage, and who agree about how to handle money,
+  property, and children.
 
+  **Did you mean to check that box?** Choose **Undo** below to go back and change
+  your answer.
+
+  **Is your answer right?** Then you may need a different kind of divorce. A 1B
+  divorce is for couples who do not agree, or who are not ready to file an
+  agreement. You can keep going here, but the court may not accept your papers.
 sets: cautionary_message_divorce_type
-buttons: 
-  - Keep going: 
+buttons:
+  - Keep going:
       code: |
         cautionary_message_divorce_type = True
-  - Restart: restart
+  - Start over: restart
   - Exit: exit
 under: |
-      [**Which type of divorce should I file?**](https://www.mass.gov/decision-tree/which-type-of-divorce-should-i-file)
+  [**Which type of divorce should I file?**](https://www.mass.gov/decision-tree/which-type-of-divorce-should-i-file)
 ---
 id: Agreement on major issues
 question: | 
