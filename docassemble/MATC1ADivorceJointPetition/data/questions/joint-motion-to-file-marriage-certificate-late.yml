@@ -13,9 +13,7 @@ code: |
   # The parent packet has already collected the parties and marriage details.
   marriage_city = marriage_location_city
   marriage_state = marriage_location_state
-  # marriage_location_country is only collected for international marriages,
-  # so it is undefined when the marriage happened in the United States.
-  marriage_country = showifdef("marriage_location_country")
+  marriage_country = marriage_location_country
   marriage_proof_delay_reason
   marriage_proof_delay_action_plan
   users[0].phone_number
