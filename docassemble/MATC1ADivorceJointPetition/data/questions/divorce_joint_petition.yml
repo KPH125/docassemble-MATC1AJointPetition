@@ -86,6 +86,11 @@ code: |
   nav.set_section("relationship_background")
   marriage_date
   set_marriage_location
+  if not international_marriage:
+    # The country is only asked for marriages outside the United States, but
+    # the late marriage certificate motion reads it either way. Define it here
+    # so that motion does not send us back to this screen forever.
+    marriage_location_country = ""
 
   if defined("has_existing_1b_action") and has_existing_1b_action:
     previous_action = True
@@ -880,12 +885,217 @@ code: |
 #    users2_petition_signer_phone_number = attorneys[1].phone_number
 #  set_petition_signatory_party_b = True
 ---
+comment: |
+  Helpers for working out which county the divorce can be filed in.
+  The county field on our address questions is optional, and most people in
+  Massachusetts do not know their county, so fall back to geocoding. When we
+  still cannot tell, these return "" and the interview asks the parties to
+  choose rather than guessing.
 code: |
-  # This is a placeholder for the addresses that will be searched
-  # for matching address to court. Edit if court venue is based on 
-  # a different address than the user's
+  def venue_county_of(address):
+    county = str(showifdef(address.attr_name("county"), "")).strip()
+    if not county:
+      try:
+        address.geocode()
+      except:
+        pass
+      county = str(showifdef(address.attr_name("county"), "")).strip()
+    if county.lower() in ("", "unknown"):
+      return ""
+    return county
+
+  def venue_county_key(address):
+    return venue_county_of(address).lower().replace("county", "").strip()
+
+  def venue_in_massachusetts(address):
+    state = str(showifdef(address.attr_name("state"), "")).strip().lower()
+    return state in ("ma", "mass", "massachusetts")
+
+  def venue_county_label(address):
+    county = venue_county_of(address)
+    if not county:
+      return str(showifdef(address.attr_name("city"), "where they live"))
+    if county.lower().endswith("county"):
+      return county
+    return county + " County"
+---
+comment: |
+  Venue for a 1A divorce.
+
+  If either spouse still lives in the marital home, the case belongs in the
+  county of the marital home. Otherwise it can be filed in any Massachusetts
+  county where either spouse lives, unless one of them still lives in the
+  marital home's county, which brings venue back to the marital home's county.
+
+  Only one address is searched, so the court lookup can geocode it and match a
+  single county instead of merging courts from several counties.
+code: |
+  # Force the addresses to exist before comparing them, so a half-gathered
+  # address cannot send us back through this block.
+  marital_home.address
   [user.address.address for user in users.complete_elements()]
-  addresses_to_search = [user.address for user in users.complete_elements()]
+
+  venue_party_counties = set(
+    venue_county_key(user.address)
+    for user in users.complete_elements()
+    if venue_in_massachusetts(user.address) and venue_county_key(user.address)
+  )
+  venue_marital_home_county = (
+    venue_county_key(marital_home) if venue_in_massachusetts(marital_home) else ""
+  )
+  # The marital home's county is a venue only while someone still lives there,
+  # or while a spouse lives in that same county. Otherwise it is not offered.
+  venue_marital_home_proper = venue_in_massachusetts(marital_home) and (
+    who_lives_at_marital_home != "neither"
+    or (venue_marital_home_county and venue_marital_home_county in venue_party_counties)
+  )
+
+  venue_candidates = []
+  if venue_marital_home_proper:
+    venue_candidates.append(("marital_home", marital_home))
+  if venue_in_massachusetts(users[0].address):
+    venue_candidates.append(("party_a", users[0].address))
+  if venue_in_massachusetts(users[1].address):
+    venue_candidates.append(("party_b", users[1].address))
+
+  # One entry per county. The marital home is first, so when a spouse still
+  # lives in its county the two collapse into the marital home's entry.
+  venue_options = []
+  venue_seen_counties = set()
+  for venue_key, venue_candidate in venue_candidates:
+    venue_candidate_county = venue_county_key(venue_candidate)
+    if venue_candidate_county and venue_candidate_county in venue_seen_counties:
+      continue
+    if venue_candidate_county:
+      venue_seen_counties.add(venue_candidate_county)
+    venue_options.append((venue_key, venue_candidate))
+
+  venue_addresses_by_key = dict(venue_options)
+
+  # The county the venue rules point to. It is preselected, not forced, so the
+  # parties can change it when they know something we do not.
+  if "marital_home" in venue_addresses_by_key:
+    venue_default = "marital_home"
+  elif venue_options:
+    venue_default = venue_options[0][0]
+  else:
+    venue_default = "marital_home"
+
+  venue_choice_list = []
+  for venue_key, venue_candidate in venue_options:
+    if venue_key == "marital_home":
+      venue_where = "where your marital home is"
+    elif venue_key == "party_a":
+      venue_where = "where " + str(users[0]) + " lives"
+    else:
+      venue_where = "where " + str(users[1]) + " lives"
+    venue_choice_list.append(
+      {
+        "label": venue_county_label(venue_candidate) + " — " + venue_where,
+        "value": venue_key,
+      }
+    )
+---
+code: |
+  if len(venue_options) > 1:
+    venue_address = venue_addresses_by_key[venue_selection]
+  elif venue_options:
+    venue_address = venue_options[0][1]
+  else:
+    # Neither spouse lives in Massachusetts anymore. Fall back to the marital
+    # home so the court question can offer the full list of courts.
+    venue_address = marital_home
+---
+id: choose county to file in
+section: court_requests
+question: |
+  Where do you want to file?
+subquestion: |
+  % if who_lives_at_marital_home != "neither":
+  Because one of you still lives in the marital home, your divorce belongs in
+  that county. We selected it below.
+  % else:
+  Neither of you still lives in the marital home, so you can file where either
+  of you lives.
+  % endif
+fields:
+  - "Choose where to file": venue_selection
+    input type: radio
+    code: |
+      venue_choice_list
+    default: ${ venue_default }
+under: |
+  Change this only if you know the court expects your case somewhere else.
+  Filing in the wrong county can delay your divorce.
+---
+comment: |
+  Probate and Family Court(s) serving the venue address. Passing the one
+  address lets MACourts geocode it and fill in the county, which is how it
+  matches a court.
+code: |
+  venue_courts = all_courts.matching_courts(venue_address, court_types=allowed_courts)
+---
+comment: |
+  Choose the court from the venue address rather than making people type a
+  court name. This block is loaded after AssemblyLine and ALMassachusetts, so
+  it wins over the generic "tell us about a court" fallback, which has no way
+  to know about Massachusetts counties.
+code: |
+  if len(venue_courts) == 1:
+    trial_court = venue_courts[0]
+  else:
+    trial_court = selected_trial_court
+---
+id: choose probate and family court
+section: court_requests
+question: |
+  Which court do you want to file in?
+subquestion: |
+  % if len(venue_courts):
+  These Probate and Family Courts serve ${ venue_address.on_one_line() }.
+
+  ${ map_of(combined_locations(venue_courts)) }
+  % else:
+  We could not match a court to ${ venue_address.on_one_line() }. Choose the
+  Probate and Family Court for the county where you are filing.
+  % endif
+fields:
+  - no label: selected_trial_court
+    datatype: object_radio
+    choices: venue_courts
+    object labeler: court_short_description
+    show if:
+      code: |
+        len(venue_courts)
+  - no label: selected_trial_court
+    datatype: object
+    object labeler: court_short_label
+    choices: all_courts.filter_courts(allowed_courts)
+    show if:
+      code: |
+        not len(venue_courts)
+---
+id: confirm trial court
+section: court_requests
+continue button field: trial_court_confirmed
+question: |
+  This is the court you are filing in
+subquestion: |
+  ### ${ trial_court.name }
+
+  ${ trial_court.address.block() }
+
+  % if len(venue_courts):
+  This is the Probate and Family Court that serves ${ venue_address.on_one_line() }.
+  % endif
+
+  % if who_lives_at_marital_home != "neither":
+  Because one of you still lives in the marital home, your divorce belongs in
+  that county.
+  % endif
+
+  If this is not where you want to file, use **Undo** to go back and change your
+  answers.
 ---
 id: divorce joint petition review screen
 event: review_divorcejointpetition

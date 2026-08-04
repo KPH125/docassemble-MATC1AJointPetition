@@ -399,6 +399,8 @@ code: |
 
   nav.set_section("court_requests")
   trial_court
+  # Always show the court, even when the venue rules left no choice to make.
+  trial_court_confirmed
   set_trial_court_division
 
   needs_late_marriage_certificate_motion = not bool(marriage_certificate_upload)
@@ -479,6 +481,14 @@ code: |
   )
   request_survive_agreement = True
   set_petition_merger_survival_from_agreement = True
+---
+comment: |
+  Search only the venue address worked out in divorce_joint_petition.yml.
+  This lives in the top-level file on purpose: it is loaded after every
+  include, so it takes precedence over the copies of addresses_to_search
+  that the included form interviews define for their standalone use.
+code: |
+  addresses_to_search = [venue_address]
 ---
 code: |
   court_name = str(trial_court)
