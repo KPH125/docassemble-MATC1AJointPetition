@@ -34,9 +34,8 @@ metadata:
     1. File your notarized separation agreement, unless you create or upload one here
     2. File Certified Copy of Marriage Certificate (unless complete) 
     3. File financial statements for each petitioner
-    4. If child support is being addressed or waived:
-      a. child support guidelines worksheet (CJD 304)
-      b. findings and determinations for child support and post-secondary education (CJD 305)
+    4. If there are children of the marriage, file a child support guidelines worksheet (CJD 304), unless you create or upload one here
+    5. If your agreement sets a child support amount different from the guidelines, including waiving child support, file findings and determinations for child support and post-secondary education (CJD 305)
   when_you_are_finished: |
     File any remaining paperwork with the court registry and you will receive a notice with next steps from the court in the mail. You can also check the status of your case at [masscourts.org](https://www.masscourts.org)
   efiling_enabled: False
@@ -417,8 +416,9 @@ code: |
     interview_order_affidavit_disclosing_care_or_custody_addresses
     trigger_aff_care_or_custody_computed_variables
 
-  include_child_support_guidelines_worksheet = children_of_marriage
-  include_findings_and_determinations = children_of_marriage
+  include_child_support_guidelines_worksheet = (
+    children_of_marriage and csg_worksheet_path == "interview"
+  )
   if include_child_support_guidelines_worksheet:
     set_child_support_guidelines_defaults
     nav.set_section("child_support_guidelines")
@@ -441,6 +441,20 @@ code: |
       children.target_number = len(children)
     interview_order_a_divorce_agreement
     set_petition_merger_survival_from_agreement
+
+  # Findings and Determinations (CJD 305) is only needed when the parties
+  # deviate from the child support guidelines amount. Waiving support is a
+  # deviation down to $0. With no completed worksheet or no agreement yet,
+  # there is no guideline amount or agreed amount to compare.
+  if not children_of_marriage or csg_worksheet_path == "wait" or separation_agreement_format == "wait":
+    include_findings_and_determinations = False
+  elif separation_agreement_format == "interview":
+    include_findings_and_determinations = child_support_deviation
+  else:
+    include_findings_and_determinations = (
+      uploaded_agreement_addresses_child_support
+      and uploaded_agreement_child_support_deviation
+    )
 
   if include_findings_and_determinations:
     set_findings_and_determinations_defaults

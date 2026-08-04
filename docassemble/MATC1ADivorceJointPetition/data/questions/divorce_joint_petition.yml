@@ -57,6 +57,17 @@ code: |
     cautionary_message_divorce_type
 
   nav.set_section("separation_agreement")
+  # The worksheet path must be settled before the separation agreement
+  # format: an agreement built in this tool needs a guideline amount, so
+  # that option is hidden when the worksheet is not done yet.
+  children_of_marriage
+  if children_of_marriage:
+    csg_worksheet_path
+    if csg_worksheet_path == "wait":
+      cautionary_message_delay_csg_worksheet
+    elif csg_worksheet_path == "upload":
+      child_support_guidelines_worksheet_upload
+      set_child_support_defaults_from_uploaded_worksheet
   separation_agreement_reached
   if separation_agreement_reached == True:
     separation_agreement_documented
@@ -69,7 +80,9 @@ code: |
     cautionary_message_delay_agreement
   elif separation_agreement_format == "upload":
     separation_agreement_upload
-  
+    if children_of_marriage and csg_worksheet_path != "wait":
+      uploaded_agreement_addresses_child_support
+
   nav.set_section("relationship_background")
   marriage_date
   set_marriage_location
@@ -99,7 +112,6 @@ code: |
   set_parts(subtitle=str(users))
   
   nav.set_section("children_information")
-  children_of_marriage
   if children_of_marriage:
     children.gather()
     set_parts(subtitle=str(children))
@@ -364,6 +376,10 @@ question: |
   Separation agreement
 subquestion: |
   Your separation agreement tells the court how you will handle property, custody, and support. It must be {notarized} within 90 days of filing and should be filed with your initial petition.
+  % if children_of_marriage and csg_worksheet_path == "wait":
+
+  Because your child support guidelines worksheet is not done yet, this tool cannot create a separation agreement for you. The agreement must state a child support guideline amount, and that amount comes from the worksheet.
+  % endif
 fields:
   - "Have you already prepared a separation agreement?": separation_agreement_documented
     datatype: yesnoradio
@@ -378,9 +394,25 @@ fields:
     show if:
       variable: separation_agreement_documented
       is: False
-    choices:
-      - "Create one using this interview tool": interview
-      - "File something with the court registry later": wait
+    code: |
+      separation_agreement_format_options
+---
+depends on:
+  - children_of_marriage
+  - csg_worksheet_path
+code: |
+  # An agreement built in this tool always asks for a child support
+  # guideline amount, which does not exist until the worksheet is
+  # completed or uploaded.
+  if children_of_marriage and csg_worksheet_path == "wait":
+    separation_agreement_format_options = [
+      {"label": "File something with the court registry later", "value": "wait"},
+    ]
+  else:
+    separation_agreement_format_options = [
+      {"label": "Create one using this interview tool", "value": "interview"},
+      {"label": "File something with the court registry later", "value": "wait"},
+    ]
 ---
 id: Upload agreement
 question: |
@@ -401,6 +433,85 @@ subquestion: |
   * You must file a separation agreement within 90 days of filing a joint petition for divorce (1A)
   * Your separation agreement must be notarized
   * Your separation agreement should address all issues such as property division, child custody, and child support
+---
+id: child support guidelines worksheet status
+question: |
+  Child support guidelines worksheet
+subquestion: |
+  Because you have {children of the marriage}, the court requires a completed
+  [Child Support Guidelines Worksheet (CJD 304)](https://www.mass.gov/info-details/probate-and-family-court-2025-child-support-guidelines-worksheet-cjd-304),
+  even if you agree to waive child support. The worksheet uses the {child support guidelines} to calculate a weekly support amount.
+fields:
+  - "How would you like to handle the worksheet?": csg_worksheet_path
+    input type: radio
+    choices:
+      - "Fill out the worksheet using this interview tool": interview
+      - "Upload my completed worksheet now": upload
+      - "File it with the court registry later": wait
+---
+id: upload child support guidelines worksheet
+question: |
+  Upload child support guidelines worksheet
+subquestion: |
+  Upload your completed Child Support Guidelines Worksheet (CJD 304). We cannot read the numbers from the file automatically, so also tell us the result from your worksheet.
+fields:
+  - "Upload completed worksheet": child_support_guidelines_worksheet_upload
+    datatype: file
+  - "Weekly child support amount calculated by the worksheet": uploaded_worksheet_guideline_amount
+    datatype: currency
+    min: 0
+  - "Who would pay child support (the payor)?": uploaded_worksheet_payor
+    input type: radio
+    choices:
+      - "${ users[0] }": party_a
+      - "${ users[1] }": party_b
+---
+depends on:
+  - uploaded_worksheet_guideline_amount
+  - uploaded_worksheet_payor
+code: |
+  child_support_guideline_amount = uploaded_worksheet_guideline_amount
+  guidelines_support_amount = uploaded_worksheet_guideline_amount
+  guidelines_frequency = "Weekly"
+  child_support_frequency = "Weekly"
+  if uploaded_worksheet_payor == "party_a":
+    payor_name = users[0].name.full()
+    recipient_name = users[1].name.full()
+  else:
+    payor_name = users[1].name.full()
+    recipient_name = users[0].name.full()
+  child_support_payer = payor_name
+  child_support_recipient = recipient_name
+  set_child_support_defaults_from_uploaded_worksheet = True
+---
+id: Cautionary message delay child support worksheet
+continue button field: cautionary_message_delay_csg_worksheet
+question: |
+  Confirm information
+subquestion: |
+  You have indicated that you have not completed a child support guidelines worksheet yet. Confirm that you understand:
+
+  * You must complete and file a Child Support Guidelines Worksheet (CJD 304) before the court can approve your divorce
+  * Because there is no guideline amount yet, this tool cannot build your separation agreement or the Findings and Determinations form (CJD 305)
+  * If your agreement sets a child support amount different from the worksheet's guideline amount — including waiving child support — you must also complete and file the Findings and Determinations form (CJD 305)
+---
+id: uploaded agreement addresses child support
+question: |
+  Does your agreement address child support?
+subquestion: |
+  Tell us about the separation agreement you uploaded.
+fields:
+  - "Does your agreement address child support (including waiving it)?": uploaded_agreement_addresses_child_support
+    datatype: yesnoradio
+---
+id: uploaded agreement child support deviation
+question: |
+  Child support amount in your agreement
+subquestion: |
+  Your child support guidelines worksheet calculates a weekly amount of **${ currency(child_support_guideline_amount) }**.
+fields:
+  - "Does your agreement set a different amount than the guidelines calculate, including reducing it to $0 or waiving child support?": uploaded_agreement_child_support_deviation
+    datatype: yesnoradio
 ---
 id: Relationship background
 question: |
