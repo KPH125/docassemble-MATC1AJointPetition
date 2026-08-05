@@ -1215,6 +1215,115 @@ review:
       **Attorney 2 BBO number**:
       ${ attorneys2_bbo_number }
 ---
+id: odr import review screen
+event: review_odr_import
+question: |
+  Review your imported ODR information
+subquestion: |
+  We imported this information from the ODR platform when you entered this interview.
+  Review each section before you continue. You can edit anything that is incorrect.
+review:
+  - note: |
+      ## Case information
+  - Edit: trial_court
+    button: |
+      **Trial court**
+
+      % if defined("trial_court.address.county"):
+      * address: ${ trial_court.address.block() }
+      % endif
+  - Edit: docket_number
+    button: |
+      **Docket number**:
+      ${ docket_number }
+  - Edit: previous_action
+    button: |
+      **Existing 1B case to convert**:
+      ${ word(yesno(previous_action)) }
+  - Edit: previous_action_detail
+    show if: previous_action
+    button: |
+      **Existing case details**:
+      > ${ single_paragraph(previous_action_detail) }
+  - note: |
+      ## Parties
+  - Edit: users.revisit
+    button: |
+      **Users**
+
+      % for item in users:
+        * ${ item }
+      % endfor
+  - Edit: attorneys.revisit
+    button: |
+      **Attorneys**
+
+      % for item in attorneys:
+        * ${ item }
+      % endfor
+  - note: |
+      ## Marriage information
+  - Edit: marriage_date
+    button: |
+      **Date of marriage**:
+      ${ marriage_date }
+  - Edit: marriage_city
+    button: |
+      **City where marriage took place**:
+      ${ marriage_city }
+  - Edit: marriage_state
+    button: |
+      **State where marriage took place**:
+      ${ marriage_state }
+  - Edit: marriage_country
+    button: |
+      **Country where marriage took place**:
+      ${ marriage_country }
+  - Edit: last_living_together_date
+    button: |
+      **Last date living together**:
+      ${ last_living_together_date }
+  - Edit: marriage_breakdown_date
+    button: |
+      **Marriage breakdown date**:
+      ${ marriage_breakdown_date }
+  - note: |
+      ## Children and support
+  - Edit: children_of_marriage
+    button: |
+      **Children of the marriage**:
+      ${ word(yesno(children_of_marriage)) }
+  - Edit: children.revisit
+    show if: children_of_marriage
+    button: |
+      **Children**
+
+      % for child in children:
+        * ${ child }
+      % endfor
+  - Edit:
+      - users1_number_of_custodial_children
+      - users2_number_of_custodial_children
+    show if: children_of_marriage
+    button: |
+      * ${ users[0].familiar() }: ${ users1_number_of_custodial_children if defined("users1_number_of_custodial_children") else "Not provided" }
+      * ${ users[1].familiar() }: ${ users2_number_of_custodial_children if defined("users2_number_of_custodial_children") else "Not provided" }
+  - note: |
+      ## Separation agreement and filing documents
+  - Edit: separation_agreement_format
+    button: |
+      **How separation agreement is provided**:
+      ${ separation_agreement_format }
+  - Edit: separation_agreement_upload
+    show if: separation_agreement_format == "upload"
+    button: |
+      **Uploaded separation agreement**:
+      ${ separation_agreement_upload.filename if defined("separation_agreement_upload.filename") else "Uploaded" }
+  - Edit: marriage_certificate_upload
+    button: |
+      **Certified marriage certificate**:
+      ${ marriage_certificate_upload.filename if defined("marriage_certificate_upload.filename") else "Uploaded" }
+---
 id: edit users
 continue button field: users.revisit
 question: |
