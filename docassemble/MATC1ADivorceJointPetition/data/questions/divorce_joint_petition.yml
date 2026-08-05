@@ -969,9 +969,8 @@ review:
       - users2_number_of_custodial_children
     show if: children_of_marriage
     button: |
-      **Custodial children counts**:
-      * ${ users[0].familiar() }: ${ users1_number_of_custodial_children }
-      * ${ users[1].familiar() }: ${ users2_number_of_custodial_children }
+      * ${ users[0].familiar() }: ${ users1_number_of_custodial_children if defined("users1_number_of_custodial_children") else "Not provided" }
+      * ${ users[1].familiar() }: ${ users2_number_of_custodial_children if defined("users2_number_of_custodial_children") else "Not provided" }
   - note: |
       ## Separation agreement and filing documents
   - Edit: separation_agreement_format
