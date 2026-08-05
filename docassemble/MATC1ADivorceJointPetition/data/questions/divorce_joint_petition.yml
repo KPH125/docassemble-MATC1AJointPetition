@@ -887,6 +887,20 @@ review:
     button: |
       **users1_petition_signature**:
       ${ users1_petition_signature }
+  - Edit: users[0].has_attorney
+    button: |
+      **Attorneys**:
+      ${ users[0].has_attorney or users[1].has_attorney }
+  - Edit: attorneys[0].name.first
+    show if: users[0].has_attorney
+    button: |
+      **Attorney for ${ users[0] }**:
+      ${ attorneys[0].name_full() if defined("attorneys[0].name.first") else "" }
+  - Edit: attorneys[1].name.first
+    show if: users[1].has_attorney
+    button: |
+      **Attorney for ${ users[1] }**:
+      ${ attorneys[1].name_full() if defined("attorneys[1].name.first") else "" }
 ---
 id: edit users
 continue button field: users.revisit
