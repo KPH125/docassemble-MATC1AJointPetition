@@ -716,13 +716,9 @@ code: |
   signature_fields = ['users[0].signature', 'users[1].signature']
 ---
 code: |
-  def attorney_bbo_number(index):
-    if not defined("attorneys.there_are_any") or not attorneys.there_are_any:
-      return ""
-    try:
-      return attorneys[index].bbo_number
-    except (AttributeError, IndexError):
-      return ""
+def attorney_bbo_number(index):
+  var = f"attorneys[{index}].bbo_number"
+  return attorneys[index].bbo_number if defined(var) else ""
 ---
 #code: |
 #  if users[0].has_attorney:
