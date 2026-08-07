@@ -41,13 +41,6 @@ code: |
     users1_ssn_last_four = str(users[0].ssn)[-4:]
   if not defined("users2_ssn_last_four") and defined(users[1].attr_name("ssn")) and users[1].ssn:
     users2_ssn_last_four = str(users[1].ssn)[-4:]
----
-code: |
-  users1_name_last_at_birth = users[0].former_name_last if users[0].name_change else users[0].name.last
----
-code: |
-  users2_name_last_at_birth = users[1].former_name_last if users[1].name_change else users[1].name.last
----
 code: |
   need_r408_demographics = (
     not showifdef("users1_gender")
@@ -60,16 +53,18 @@ code: |
   need_r408_marriage_numbers = (
     not defined("users1_marriage_number")
     or not defined("users2_marriage_number")
+    or not defined("users1_name_last_at_birth")
+    or not defined("users2_name_last_at_birth")
   )
 ---
 code: |
   need_r408_addendum = len(children) > 5
 ---
 code: |
-  users1_gender_male = users1_gender == "male"
-  users1_gender_female = users1_gender == "female"
-  users2_gender_male = users2_gender == "male"
-  users2_gender_female = users2_gender == "female"
+  users1_gender_male = defined("users1_gender") and users1_gender == "male"
+  users1_gender_female = defined("users1_gender") and users1_gender == "female"
+  users2_gender_male = defined("users2_gender") and users2_gender == "male"
+  users2_gender_female = defined("users2_gender") and users2_gender == "female"
 ---
 code: |
   if children_of_marriage:
@@ -138,6 +133,10 @@ fields:
     min: 1
     default: 1
     show if: not defined("users2_marriage_number")
+  - "${ users[0] } surname at birth or adoption": users1_name_last_at_birth
+    show if: not defined("users1_name_last_at_birth")
+  - "${ users[1] } surname at birth or adoption": users2_name_last_at_birth
+    show if: not defined("users2_name_last_at_birth")
 ---
 id: r408 additional children info
 if: need_r408_addendum
@@ -155,6 +154,7 @@ code: |
   users[0].birthdate
   users[1].birthdate
   if children_of_marriage:
+    users1_number_of_custodial_children
     users2_number_of_custodial_children
   else:
     users1_number_of_custodial_children = 0
@@ -210,7 +210,7 @@ attachment:
     - "users2_birthdate": ${ users[1].birthdate.format() }
     - "users2_gender_male": ${ users2_gender_male }
     - "users2_gender_female": ${ users2_gender_female }
-    - "users2_ssn_last_four": ${ users2_ssn_last_four }
+    - "users2_ssn": ${ users2_ssn_last_four }
     - "users2_number_of_custodial_children": ${ users2_number_of_custodial_children }
     - "users2_marriage_number": ${ users2_marriage_number }
     - "users2_address_address": ${ users[1].address.address }
