@@ -115,6 +115,15 @@ code: |
 
   users.gather()
   set_parts(subtitle=str(users))
+
+  # Collect counsel information only for the represented spouse or spouses.
+  # Attorney signatures are handled separately from this packet intake flow.
+  users[0].has_attorney
+  attorneys.there_are_any = users[0].has_attorney or users[1].has_attorney
+  if users[0].has_attorney:
+    attorneys[0].name.first
+  if users[1].has_attorney:
+    attorneys[1].name.first
   
   nav.set_section("children_information")
   if children_of_marriage:
@@ -840,7 +849,23 @@ subquestion: |
 continue button field: divorcejointpetition_preview_question    
 ---
 code: |
-  signature_fields = ['users[0].signature', 'users[1].signature']
+  signature_fields = [
+    'attorneys[0].signature' if users[0].has_attorney else 'users[0].signature',
+    'attorneys[1].signature' if users[1].has_attorney else 'users[1].signature',
+  ]
+---
+code: |
+  def attorney_bbo_number(index):
+    var = f"attorneys[{index}].bbo_number"
+    return attorneys[index].bbo_number if defined(var) else ""
+
+  def petition_signer(index):
+    return attorneys[index] if users[index].has_attorney else users[index]
+
+  def petition_signature(index, document_key):
+    if document_key != "final":
+      return ""
+    return attorneys[index].signature if users[index].has_attorney else users[index].signature
 ---
 #code: |
 #  if users[0].has_attorney:
@@ -854,10 +879,20 @@ question: |
   ${  users[0]  }, sign below
 signature: users[0].signature
 ---
+id: sign attorney for party A
+question: |
+  ${ attorneys[0] }, sign below for ${ users[0] }
+signature: attorneys[0].signature
+---
 id: sign party B
 question: |
   ${  users[1]  }, sign below
 signature: users[1].signature
+---
+id: sign attorney for party B
+question: |
+  ${ attorneys[1] }, sign below for ${ users[1] }
+signature: attorneys[1].signature
 ---
 code: |
   users.there_is_another = False
@@ -1202,22 +1237,40 @@ review:
     button: |
       **Date of signature**:
       ${ signature_date }
-  - Edit: users2_petition_signature
+  - Edit: users[0].signature
+    show if: not users[0].has_attorney
     button: |
-      **users2_petition_signature**:
-      ${ users2_petition_signature }
-  - Edit: users1_petition_signature
+      **Signature for ${ users[0] }**:
+      ${ users[0].signature }
+  - Edit: attorneys[0].signature
+    show if: users[0].has_attorney
     button: |
-      **users1_petition_signature**:
-      ${ users1_petition_signature }
-  - Edit: attorneys1_bbo_number
+      **Signature for ${ users[0] }'s attorney**:
+      ${ attorneys[0].signature }
+  - Edit: users[1].signature
+    show if: not users[1].has_attorney
     button: |
-      **Attorney 1 BBO number**:
-      ${ attorneys1_bbo_number }
-  - Edit: attorneys2_bbo_number
+      **Signature for ${ users[1] }**:
+      ${ users[1].signature }
+  - Edit: attorneys[1].signature
+    show if: users[1].has_attorney
     button: |
-      **Attorney 2 BBO number**:
-      ${ attorneys2_bbo_number }
+      **Signature for ${ users[1] }'s attorney**:
+      ${ attorneys[1].signature }
+  - Edit: users[0].has_attorney
+    button: |
+      **Attorneys**:
+      ${ users[0].has_attorney or users[1].has_attorney }
+  - Edit: attorneys[0].name.first
+    show if: users[0].has_attorney
+    button: |
+      **Attorney for ${ users[0] }**:
+      ${ attorneys[0].name_full() if defined("attorneys[0].name.first") else "" }
+  - Edit: attorneys[1].name.first
+    show if: users[1].has_attorney
+    button: |
+      **Attorney for ${ users[1] }**:
+      ${ attorneys[1].name_full() if defined("attorneys[1].name.first") else "" }
 ---
 id: odr import review screen
 event: review_odr_import
@@ -1424,23 +1477,23 @@ attachment:
       - "additonal_request_detail": ${ additonal_request_detail }
       - "signature_date": ${ signature_date }
       # It's a signature: test which file version this is; leave empty unless it's the final version)
-      - "users2_petition_signature": ${ users[1].signature if i == "final" else '' }
+      - "users2_petition_signature": ${ petition_signature(1, i) }
       # It's a signature: test which file version this is; leave empty unless it's the final version)
-      - "users1_petition_signature": ${ users[0].signature if i == "final" else '' }
-      - "users1_petition_signer_name_full": ${ users[0] }
-      - "users2_petition_signer_name_full": ${ users[1] }
-      - "users1_petition_signer_address_address": ${ users[0].address.address }
-      - "users2_petition_signer_address_address": ${ users[1].address.address }
-      - "users1_petition_signer_address_city": ${ users[0].address.city }
-      - "users1_petition_signer_address_state": ${ users[0].address.state }
-      - "users1_petition_signer_address_zip": ${ users[0].address.zip }
-      - "users2_petition_signer_address_city": ${ users[1].address.city }
-      - "users2_petition_signer_address_state": ${ users[1].address.state }
-      - "users2_petition_signer_address_zip": ${ users[1].address.zip }
-      - "users1_petition_signer_phone_number": ${ users[0].phone_number }
-      - "users2_petition_signer_phone_number": ${ users[1].phone_number }
-      - "attorneys1_bbo_number": ${ attorneys[0].bbo_number }
-      - "attorneys2_bbo_number": ${ attorneys[1].bbo_number }
+      - "users1_petition_signature": ${ petition_signature(0, i) }
+      - "users1_petition_signer_name_full": ${ petition_signer(0) }
+      - "users2_petition_signer_name_full": ${ petition_signer(1) }
+      - "users1_petition_signer_address_address": ${ petition_signer(0).address.address }
+      - "users2_petition_signer_address_address": ${ petition_signer(1).address.address }
+      - "users1_petition_signer_address_city": ${ petition_signer(0).address.city }
+      - "users1_petition_signer_address_state": ${ petition_signer(0).address.state }
+      - "users1_petition_signer_address_zip": ${ petition_signer(0).address.zip }
+      - "users2_petition_signer_address_city": ${ petition_signer(1).address.city }
+      - "users2_petition_signer_address_state": ${ petition_signer(1).address.state }
+      - "users2_petition_signer_address_zip": ${ petition_signer(1).address.zip }
+      - "users1_petition_signer_phone_number": ${ petition_signer(0).phone_number }
+      - "users2_petition_signer_phone_number": ${ petition_signer(1).phone_number }
+      - "attorneys1_bbo_number": ${ attorney_bbo_number(0) }
+      - "attorneys2_bbo_number": ${ attorney_bbo_number(1) }
 ---
 attachment:
   name: affidavit
