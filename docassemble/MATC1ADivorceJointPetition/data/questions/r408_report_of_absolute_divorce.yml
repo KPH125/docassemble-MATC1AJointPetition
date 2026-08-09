@@ -37,16 +37,17 @@ code: |
       users2_gender = "female"
 ---
 code: |
+  import re
   if not defined("users1_ssn_last_four") and defined(users[0].attr_name("ssn")) and users[0].ssn:
     users1_ssn_last_four = str(users[0].ssn)[-4:]
   if not defined("users2_ssn_last_four") and defined(users[1].attr_name("ssn")) and users[1].ssn:
     users2_ssn_last_four = str(users[1].ssn)[-4:]
-code: |
+
   need_r408_demographics = (
     not showifdef("users1_gender")
     or not showifdef("users2_gender")
-    or not showifdef("users1_ssn_last_four")
-    or not showifdef("users2_ssn_last_four")
+    or not re.fullmatch(r"\d{4}", str(showifdef("users1_ssn_last_four") or ""))
+    or not re.fullmatch(r"\d{4}", str(showifdef("users2_ssn_last_four") or ""))
   )
 ---
 code: |
