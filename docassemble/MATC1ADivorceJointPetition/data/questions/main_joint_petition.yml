@@ -7,6 +7,7 @@ include:
   - docassemble.MATCCSGWorksheet:child_support_guidelines_worksheet_core.yml
   - docassemble.matcfindingsanddeterminations:cjd_305_findings_determinations_core.yml
   - divorce_joint_petition.yml
+  - r408_report_of_absolute_divorce.yml
   - joint-motion-to-file-marriage-certificate-late.yml
 ---
 metadata:
@@ -202,6 +203,9 @@ code: |
   affidavit_attachment.enabled = True
 ---
 code: |
+  r408_attachment.enabled = defined("include_r408") and include_r408
+---
+code: |
   affidavitofindigency_attachment.enabled = ask_if_qualifies_for_fee_waiver and is_indigent
 ---
 code: |
@@ -268,8 +272,8 @@ objects:
 ---
 # Bundles group the ALDocuments into separate downloads, such as for court and for the user
 objects:
-  - al_user_bundle: ALDocumentBundle.using(elements=[motion_to_amend_attachment, divorcejointpetition_Post_interview_instructions, divorcejointpetition_attachment, affidavit_attachment, jointmotiontofilemarriagecertificatelate_attachment, affidavitofindigency_attachment, child_care_or_custody_disclosure_affidavit_next_steps, affidavit_of_care_or_custody_attachment, ma_child_support_guidelines_worksheet_attachment, cjd_305_attachment, users[0].financial_statement_short_attachment, users[0].financial_statement_long_attachment, users[0].financial_statement_schedule_a_attachment, users[0].financial_statement_schedule_b_attachment, users[1].financial_statement_short_attachment, users[1].financial_statement_long_attachment, users[1].financial_statement_schedule_a_attachment, users[1].financial_statement_schedule_b_attachment, a_divorce_agreement_Post_interview_instructions, a_divorce_agreement_attachment], filename="joint_petition_divorce_packet", title="All forms to download for your records", enabled=True)
-  - al_court_bundle: ALDocumentBundle.using(elements=[motion_to_amend_attachment, divorcejointpetition_attachment, affidavit_attachment, jointmotiontofilemarriagecertificatelate_attachment, affidavitofindigency_attachment, affidavit_of_care_or_custody_attachment, ma_child_support_guidelines_worksheet_attachment, cjd_305_attachment, users[0].financial_statement_short_attachment, users[0].financial_statement_long_attachment, users[0].financial_statement_schedule_a_attachment, users[0].financial_statement_schedule_b_attachment, users[1].financial_statement_short_attachment, users[1].financial_statement_long_attachment, users[1].financial_statement_schedule_a_attachment, users[1].financial_statement_schedule_b_attachment, a_divorce_agreement_attachment], filename="joint_petition_divorce_packet", title="All forms to deliver to court", enabled=True)
+  - al_user_bundle: ALDocumentBundle.using(elements=[motion_to_amend_attachment, divorcejointpetition_Post_interview_instructions, divorcejointpetition_attachment, affidavit_attachment, r408_attachment, jointmotiontofilemarriagecertificatelate_attachment, affidavitofindigency_attachment, child_care_or_custody_disclosure_affidavit_next_steps, affidavit_of_care_or_custody_attachment, ma_child_support_guidelines_worksheet_attachment, cjd_305_attachment, users[0].financial_statement_short_attachment, users[0].financial_statement_long_attachment, users[0].financial_statement_schedule_a_attachment, users[0].financial_statement_schedule_b_attachment, users[1].financial_statement_short_attachment, users[1].financial_statement_long_attachment, users[1].financial_statement_schedule_a_attachment, users[1].financial_statement_schedule_b_attachment, a_divorce_agreement_Post_interview_instructions, a_divorce_agreement_attachment], filename="joint_petition_divorce_packet", title="All forms to download for your records", enabled=True)
+  - al_court_bundle: ALDocumentBundle.using(elements=[motion_to_amend_attachment, divorcejointpetition_attachment, affidavit_attachment, r408_attachment, jointmotiontofilemarriagecertificatelate_attachment, affidavitofindigency_attachment, affidavit_of_care_or_custody_attachment, ma_child_support_guidelines_worksheet_attachment, cjd_305_attachment, users[0].financial_statement_short_attachment, users[0].financial_statement_long_attachment, users[0].financial_statement_schedule_a_attachment, users[0].financial_statement_schedule_b_attachment, users[1].financial_statement_short_attachment, users[1].financial_statement_long_attachment, users[1].financial_statement_schedule_a_attachment, users[1].financial_statement_schedule_b_attachment, a_divorce_agreement_attachment], filename="joint_petition_divorce_packet", title="All forms to deliver to court", enabled=True)
 ---
 event: al_user_bundle.save_downloads
 code: |
@@ -402,6 +406,9 @@ code: |
   # Always show the court, even when the venue rules left no choice to make.
   trial_court_confirmed
   set_trial_court_division
+  include_r408 = not has_existing_1b_action
+  if include_r408:
+    interview_order_r408
 
   needs_late_marriage_certificate_motion = not bool(marriage_certificate_upload)
   if needs_late_marriage_certificate_motion:
