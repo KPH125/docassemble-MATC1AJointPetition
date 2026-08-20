@@ -10,6 +10,7 @@ from runtime_driver import (
     question_source_file,
     run_scenario,
     serialized_collection_count,
+    serialized_bundle_evidence,
     serialized_object_choices,
     serialized_path_cardinality,
     serialized_path_value,
@@ -81,6 +82,52 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_serialized_bundle_evidence_records_exact_generated_files(self):
+        bundle = {
+            "_class": "docassemble.AssemblyLine.al_document.ALDocumentBundle",
+            "elements": [
+                {
+                    "instanceName": "included_attachment",
+                    "always_enabled": False,
+                    "cache": {"enabled": True},
+                    "elements": {
+                        "preview": {
+                            "pdf": {
+                                "_class": "docassemble.base.util.DAFile",
+                                "filename": "included.pdf",
+                                "extension": "pdf",
+                                "ok": True,
+                                "file_info": {"pages": 2},
+                            }
+                        }
+                    },
+                },
+                {
+                    "instanceName": "excluded_attachment",
+                    "always_enabled": False,
+                    "cache": {"enabled": False},
+                    "elements": {},
+                },
+            ],
+        }
+        evidence = serialized_bundle_evidence(bundle)
+        self.assertTrue(evidence["included_attachment"]["generated"])
+        self.assertEqual(evidence["included_attachment"]["files"][0]["pages"], 2)
+        self.assertFalse(evidence["excluded_attachment"]["generated"])
+
+    def test_bundle_membership_mismatch_fails_terminal(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_bundle_documents": {"required_attachment": True},
+        }
+        result = run_scenario(FakeClient([terminal]), scenario, limits())
+        self.assertEqual(result["failure"], "bundle_document_mismatch")
+
     def test_question_source_file_uses_included_file_history(self):
         question = {
             "source": {

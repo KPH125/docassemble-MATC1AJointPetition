@@ -175,6 +175,32 @@ code: |
   users[0].separation_agreement_role = "party_a"
   users[1].separation_agreement_role = "party_b"
 ---
+# Standalone child interviews initialize some documents with enabled=True,
+# which AssemblyLine preserves as always_enabled. The combined parent owns its
+# packet composition, so clear that standalone override before evaluating the
+# per-route .enabled definitions below.
+code: |
+  for conditional_document in (
+      motion_to_amend_attachment,
+      affidavitofindigency_attachment,
+      child_care_or_custody_disclosure_affidavit_next_steps,
+      affidavit_of_care_or_custody_attachment,
+      ma_child_support_guidelines_worksheet_attachment,
+      cjd_305_attachment,
+      users[0].financial_statement_short_attachment,
+      users[0].financial_statement_long_attachment,
+      users[0].financial_statement_schedule_a_attachment,
+      users[0].financial_statement_schedule_b_attachment,
+      users[1].financial_statement_short_attachment,
+      users[1].financial_statement_long_attachment,
+      users[1].financial_statement_schedule_a_attachment,
+      users[1].financial_statement_schedule_b_attachment,
+      a_divorce_agreement_Post_interview_instructions,
+      a_divorce_agreement_attachment,
+  ):
+    conditional_document.always_enabled = False
+  combined_bundle_documents_normalized = True
+---
 id: existing 1B action screener
 question: |
   Do you already have a divorce case filed?
@@ -391,6 +417,7 @@ content: |
 ---
 id: joint petition interview order
 code: |
+  combined_bundle_documents_normalized
   nav.set_section("convert_1b_to_1a")
   has_existing_1b_action
   if has_existing_1b_action:

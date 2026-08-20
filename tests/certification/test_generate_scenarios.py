@@ -5,7 +5,12 @@ from pathlib import Path
 
 from yaml.constructor import ConstructorError
 
-from generate_scenarios import expected_cardinalities, expected_terminal_evidence, generate
+from generate_scenarios import (
+    expected_bundle_documents,
+    expected_cardinalities,
+    expected_terminal_evidence,
+    generate,
+)
 from model_loader import load_model
 
 
@@ -26,6 +31,7 @@ class ScenarioGenerationTests(unittest.TestCase):
                 scenario = json.loads(path.read_text())
                 self.assertTrue(scenario["expected_terminal_ids"])
                 self.assertTrue(scenario["expected_terminal_evidence"])
+                self.assertTrue(scenario["expected_bundle_documents"])
                 self.assertTrue(scenario["probe_events"])
 
     def test_model_loader_rejects_duplicate_keys(self):
@@ -64,6 +70,27 @@ class ScenarioGenerationTests(unittest.TestCase):
         self.assertEqual(evidence["users"]["expected"], 2)
         self.assertEqual(evidence["children"]["expected"], 5)
         self.assertEqual(evidence["other_care_custody_proceedings"]["expected"], 2)
+
+    def test_exact_bundle_membership_is_derived_from_path_inputs(self):
+        evidence = expected_bundle_documents({
+            "children_of_marriage": True,
+            "has_existing_1b_action": False,
+            "financial_statement_scope": "spouse_1_only",
+            "users[0].gross_annual_income": 75000,
+            "users[0].has_self_employment_income": True,
+            "separation_agreement_format": "interview",
+            "csg_worksheet_path": "interview",
+            "child_support_deviation": True,
+            "marriage_certificate_upload": "uploaded.pdf",
+            "ask_if_qualifies_for_fee_waiver": False,
+        })
+        self.assertTrue(evidence["users[0].financial_statement_long_attachment"])
+        self.assertFalse(evidence["users[0].financial_statement_short_attachment"])
+        self.assertTrue(evidence["users[0].financial_statement_schedule_a_attachment"])
+        self.assertFalse(evidence["users[1].financial_statement_long_attachment"])
+        self.assertTrue(evidence["a_divorce_agreement_attachment"])
+        self.assertTrue(evidence["cjd_305_attachment"])
+        self.assertFalse(evidence["jointmotiontofilemarriagecertificatelate_attachment"])
 
     def test_every_dimension_value_appears_in_defaults_or_an_override(self):
         observed = {}

@@ -24,6 +24,26 @@ def identified_code(filename: str, block_id: str) -> str:
 
 
 class CombinedSourceRegressionTests(unittest.TestCase):
+    def test_combined_parent_clears_standalone_document_enablement(self):
+        order = identified_code("main_joint_petition.yml", "joint petition interview order")
+        self.assertIn("combined_bundle_documents_normalized", order)
+        normalization_blocks = [
+            str(document.get("code", ""))
+            for document in documents("main_joint_petition.yml")
+            if "combined_bundle_documents_normalized = True" in str(document.get("code", ""))
+        ]
+        self.assertEqual(len(normalization_blocks), 1)
+        normalization = normalization_blocks[0]
+        for document_name in (
+            "motion_to_amend_attachment",
+            "users[0].financial_statement_short_attachment",
+            "users[1].financial_statement_long_attachment",
+            "a_divorce_agreement_attachment",
+            "affidavit_of_care_or_custody_attachment",
+        ):
+            self.assertIn(document_name, normalization)
+        self.assertIn("conditional_document.always_enabled = False", normalization)
+
     def test_uploaded_or_delayed_agreement_does_not_seek_built_agreement_state(self):
         order = identified_code("main_joint_petition.yml", "joint petition interview order")
         agreement_branch = order.split("if include_separation_agreement:", 1)[1].split(

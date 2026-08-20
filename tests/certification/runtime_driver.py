@@ -169,6 +169,79 @@ def serialized_collection_count(value: Any) -> int | None:
     return None
 
 
+def serialized_collection_elements(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        elements = value.get("elements")
+        if isinstance(elements, list):
+            return elements
+        if isinstance(elements, dict):
+            return list(elements.values())
+    return []
+
+
+def serialized_bundle_evidence(value: Any) -> dict[str, dict[str, Any]]:
+    """Compact a serialized ALDocumentBundle into generated-file evidence."""
+
+    def file_records(node: Any) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        if isinstance(node, dict):
+            class_name = str(node.get("_class", ""))
+            if class_name.endswith("DAFile"):
+                records.append(
+                    {
+                        "filename": node.get("filename"),
+                        "extension": node.get("extension"),
+                        "ok": node.get("ok"),
+                        "pages": (node.get("file_info") or {}).get("pages")
+                        if isinstance(node.get("file_info"), dict)
+                        else None,
+                    }
+                )
+            for nested in node.values():
+                records.extend(file_records(nested))
+        elif isinstance(node, list):
+            for nested in node:
+                records.extend(file_records(nested))
+        return records
+
+    result: dict[str, dict[str, Any]] = {}
+    for document in serialized_collection_elements(value):
+        if not isinstance(document, dict):
+            continue
+        name = str(document.get("instanceName") or "<unnamed>")
+        cache = document.get("cache")
+        cached_enabled = cache.get("enabled") if isinstance(cache, dict) else None
+        if document.get("always_enabled") is True:
+            enabled = True
+        elif isinstance(cached_enabled, bool):
+            enabled = cached_enabled
+        elif isinstance(document.get("enabled"), bool):
+            enabled = document["enabled"]
+        else:
+            enabled = None
+        files = file_records(document.get("elements"))
+        # Final and preview collections can serialize the same physical file
+        # more than once; retain one deterministic record per visible shape.
+        unique_files = {
+            canonical(record): record
+            for record in files
+        }
+        result[name] = {
+            "enabled": enabled,
+            "generated": any(record.get("ok") is True for record in unique_files.values()),
+            "files": sorted(
+                unique_files.values(),
+                key=lambda record: (
+                    str(record.get("filename")),
+                    str(record.get("extension")),
+                ),
+            ),
+        }
+    return result
+
+
 def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[int] | None:
     """Count a serialized collection at a dotted path, with ``[*]`` fan-out."""
     values: list[Any] = [root]
@@ -786,7 +859,6 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 else:
                     terminal_variables = client.variables(interview, session, secret)
                     evidence_names = (
-                        "al_user_bundle",
                         "divorcejointpetition_downloads_ready",
                         "include_r408",
                         "include_care_or_custody_affidavit",
@@ -803,6 +875,30 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         for name in evidence_names
                         if name in terminal_variables
                     }
+                    result["bundle_evidence"] = serialized_bundle_evidence(
+                        terminal_variables.get("al_user_bundle")
+                    )
+                    expected_bundle = scenario.get("expected_bundle_documents", {})
+                    bundle_mismatches = {}
+                    for name, expected_generated in expected_bundle.items():
+                        observed_document = result["bundle_evidence"].get(name)
+                        observed_generated = bool(
+                            observed_document and observed_document.get("generated")
+                        )
+                        failed_files = [
+                            record
+                            for record in (observed_document or {}).get("files", [])
+                            if record.get("ok") is False
+                        ]
+                        if observed_generated != expected_generated or failed_files:
+                            bundle_mismatches[name] = {
+                                "expected_generated": expected_generated,
+                                "observed": observed_document,
+                            }
+                    if bundle_mismatches:
+                        result["failure"] = "bundle_document_mismatch"
+                        result["bundle_document_mismatches"] = bundle_mismatches
+                        break
                     result["cardinality_evidence"] = {}
                     cardinality_mismatches = {}
                     for name, probe in scenario.get("expected_cardinalities", {}).items():

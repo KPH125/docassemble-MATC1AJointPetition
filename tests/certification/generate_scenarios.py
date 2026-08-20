@@ -48,6 +48,61 @@ def expected_terminal_evidence(variables: dict) -> dict[str, bool]:
     }
 
 
+def expected_bundle_documents(variables: dict) -> dict[str, bool]:
+    """Return the exact generated-document membership for a modeled route."""
+    terminal = expected_terminal_evidence(variables)
+    scope = variables.get("financial_statement_scope", "neither")
+    selected_users = {
+        0: scope in ("both", "spouse_1_only"),
+        1: scope in ("both", "spouse_2_only"),
+    }
+    expected = {
+        "motion_to_amend_attachment": bool(variables.get("has_existing_1b_action")),
+        "divorcejointpetition_Post_interview_instructions": True,
+        "divorcejointpetition_attachment": True,
+        "affidavit_attachment": True,
+        "r408_attachment": terminal["include_r408"],
+        "jointmotiontofilemarriagecertificatelate_attachment": terminal[
+            "needs_late_marriage_certificate_motion"
+        ],
+        # This modeled fee-waiver route uses the harness's low-income answers
+        # and must finish with an indigency form in the packet.
+        "affidavitofindigency_attachment": bool(
+            variables.get("ask_if_qualifies_for_fee_waiver")
+        ),
+        "child_care_or_custody_disclosure_affidavit_next_steps": terminal[
+            "include_care_or_custody_affidavit"
+        ],
+        "affidavit_of_care_or_custody_attachment": terminal[
+            "include_care_or_custody_affidavit"
+        ],
+        "ma_child_support_guidelines_worksheet_attachment": terminal[
+            "include_child_support_guidelines_worksheet"
+        ],
+        "cjd_305_attachment": terminal["include_findings_and_determinations"],
+        "a_divorce_agreement_Post_interview_instructions": terminal[
+            "include_separation_agreement"
+        ],
+        "a_divorce_agreement_attachment": terminal["include_separation_agreement"],
+    }
+    for index, selected in selected_users.items():
+        income = variables.get(f"users[{index}].gross_annual_income", 0)
+        form_type = "long" if selected and float(income) >= 75000 else "short"
+        expected[f"users[{index}].financial_statement_short_attachment"] = (
+            selected and form_type == "short"
+        )
+        expected[f"users[{index}].financial_statement_long_attachment"] = (
+            selected and form_type == "long"
+        )
+        expected[f"users[{index}].financial_statement_schedule_a_attachment"] = (
+            selected and bool(variables.get(f"users[{index}].has_self_employment_income"))
+        )
+        expected[f"users[{index}].financial_statement_schedule_b_attachment"] = (
+            selected and bool(variables.get(f"users[{index}].has_rental_income"))
+        )
+    return expected
+
+
 def expected_cardinalities(
     model: dict,
     variables: dict,
@@ -104,6 +159,9 @@ def generate(model: dict, output: Path) -> list[Path]:
             ),
             "expected_terminal_evidence": path.get(
                 "expected_terminal_evidence", expected_terminal_evidence(variables)
+            ),
+            "expected_bundle_documents": path.get(
+                "expected_bundle_documents", expected_bundle_documents(variables)
             ),
             "expected_cardinalities": path.get(
                 "expected_cardinalities",
