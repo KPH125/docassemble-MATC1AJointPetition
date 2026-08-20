@@ -183,9 +183,8 @@ jobs:
           mkdir -p docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
           docker logs "$DA_CONTAINER" --tail 500 \
             > docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docker.log 2>&1
-          docker exec "$DA_CONTAINER" bash -lc \
-            'tail -500 /tmp/docassemble/log/docassemble.log 2>/dev/null || true' \
-            > docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docassemble.log 2>&1
+          docker cp "$DA_CONTAINER:/usr/share/docassemble/log" \
+            docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docassemble-logs
 
       - uses: actions/upload-artifact@v4
         if: always()

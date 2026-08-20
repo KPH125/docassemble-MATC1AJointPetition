@@ -6,9 +6,12 @@ import requests
 from runtime_driver import (
     Limits,
     build_answer,
+    field_within_cardinalities,
     run_scenario,
     serialized_collection_count,
+    serialized_object_choices,
     serialized_path_cardinality,
+    serialized_path_value,
 )
 
 
@@ -105,6 +108,64 @@ class RuntimeDriverTests(unittest.TestCase):
             [0, 0],
         )
 
+    def test_serialized_path_value_resolves_nested_list_member(self):
+        child = {"_class": "example.Child", "instanceName": "children[1]"}
+        variables = {"children": {"elements": [{}, child]}}
+        self.assertEqual(serialized_path_value(variables, "children[1]"), child)
+
+    def test_rendered_list_collect_rows_stop_at_modeled_cardinality(self):
+        cardinalities = {
+            "children": {"variable": "children", "expected": 2},
+        }
+        self.assertTrue(field_within_cardinalities("children[1].name.first", cardinalities))
+        self.assertFalse(field_within_cardinalities("children[2].name.first", cardinalities))
+
+    def test_nested_rendered_rows_stop_at_each_parent_cardinality(self):
+        cardinalities = {
+            "addresses": {
+                "variable": "children[*].previous_addresses",
+                "expected": [2, 0],
+            },
+        }
+        self.assertTrue(
+            field_within_cardinalities(
+                "children[0].previous_addresses[1].address",
+                cardinalities,
+            )
+        )
+        self.assertFalse(
+            field_within_cardinalities(
+                "children[1].previous_addresses[0].address",
+                cardinalities,
+            )
+        )
+
+    def test_object_choices_are_serialized_as_a_gathered_list(self):
+        child = {
+            "_class": "docassemble.AssemblyLine.al_general.ALIndividual",
+            "instanceName": "children[0]",
+            "letter": "A",
+        }
+        target = {
+            "_class": "docassemble.AssemblyLine.al_general.ALPeopleList",
+            "instanceName": "proceedings[0].children",
+            "elements": [],
+        }
+        variables = {
+            "children": {"elements": [child]},
+            "proceedings": {"elements": [{"children": target}]},
+        }
+        result = serialized_object_choices(
+            "proceedings[0].children",
+            [{"label": "Child", "value": "children[0]"}],
+            ["children[0]"],
+            variables,
+        )
+        self.assertEqual(result["_class"], target["_class"])
+        self.assertEqual(result["elements"], [child])
+        self.assertTrue(result["gathered"])
+        self.assertFalse(result["there_is_another"])
+
     def test_settrue_field_defaults_to_boolean_true(self):
         question = {
             "questionType": "settrue",
@@ -119,6 +180,50 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertEqual(
             build_answer(question, {}),
             {"users[0].ssn": "123-45-6789"},
+        )
+
+    def test_yesnomaybe_defaults_to_boolean_false_and_hides_followup(self):
+        question = {
+            "event_list": ["children[0].gals.target_number"],
+            "fields": [
+                {
+                    "variable_name": "children[i].has_gal",
+                    "datatype": "threestate",
+                    "inputtype": "yesnomaybe",
+                },
+                {
+                    "variable_name": "children[i].gals.target_number",
+                    "datatype": "integer",
+                    "show_if_var": "children[i].has_gal",
+                    "show_if_val": "True",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"children[0].has_gal": False},
+        )
+
+    def test_build_answer_omits_rows_beyond_modeled_count(self):
+        question = {
+            "fields": [
+                {"variable_name": "children[0].name.first", "datatype": "text"},
+                {"variable_name": "children[1].name.first", "datatype": "text"},
+                {"variable_name": "children[2].name.first", "datatype": "text"},
+            ],
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {},
+                expected_cardinalities={
+                    "children": {"variable": "children", "expected": 2},
+                },
+            ),
+            {
+                "children[0].name.first": "Test",
+                "children[1].name.first": "Test",
+            },
         )
 
     def test_string_false_show_if_value_keeps_visible_field(self):
@@ -385,6 +490,35 @@ class RuntimeDriverTests(unittest.TestCase):
         )
         self.assertEqual(result["status"], "pass")
         self.assertEqual(result["cardinality_evidence"]["children"]["observed"], 0)
+
+    def test_absent_wildcard_collection_counts_as_empty_vector(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_cardinalities": {
+                "proceeding_other_parties": {
+                    "variable": "proceedings[*].other_parties",
+                    "expected": [],
+                },
+            },
+        }
+        result = run_scenario(
+            FakeClient(
+                [terminal],
+                terminal_variables={"divorcejointpetition_downloads_ready": True},
+            ),
+            scenario,
+            limits(),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(
+            result["cardinality_evidence"]["proceeding_other_parties"]["observed"],
+            [],
+        )
 
     def test_declared_event_probe_adds_its_screen_to_coverage(self):
         terminal = {

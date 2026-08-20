@@ -9,6 +9,7 @@ It is the runtime half of the combined-interview coverage proof.
 from __future__ import annotations
 
 import argparse
+import copy
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
 import hashlib
@@ -186,6 +187,78 @@ def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[i
     return counts[0] if counts else None
 
 
+def serialized_path_value(root: dict[str, Any], path: str) -> Any:
+    """Return a value from Docassemble's nested serialized object format."""
+    value: Any = root
+    for part in path.split("."):
+        match = re.fullmatch(r"([^\[]+)(?:\[(\d+)\])?", part)
+        if not match or not isinstance(value, dict):
+            return None
+        name, index = match.groups()
+        if name not in value:
+            return None
+        value = value[name]
+        if index is not None:
+            elements = value.get("elements") if isinstance(value, dict) else value
+            if isinstance(elements, list) and int(index) < len(elements):
+                value = elements[int(index)]
+            elif isinstance(elements, dict) and index in elements:
+                value = elements[index]
+            else:
+                return None
+    return value
+
+
+def field_within_cardinalities(
+    variable: str,
+    expected_cardinalities: dict[str, dict[str, Any]] | None,
+) -> bool:
+    """Reject rendered list-collect rows beyond the scenario's finite model."""
+    concrete_parts = [
+        re.fullmatch(r"([^\[]+)(?:\[(\d+)\])?", part)
+        for part in variable.split(".")
+    ]
+    if any(part is None for part in concrete_parts):
+        return True
+    concrete = [(part.group(1), part.group(2)) for part in concrete_parts if part]
+    for probe in (expected_cardinalities or {}).values():
+        expected = probe["expected"]
+        probe_parts = [
+            re.fullmatch(r"([^\[]+)(?:\[(\*)\])?", part)
+            for part in probe["variable"].split(".")
+        ]
+        if any(part is None for part in probe_parts) or len(concrete) < len(probe_parts):
+            continue
+        wildcard_indexes: list[int] = []
+        matches = True
+        for position, part in enumerate(probe_parts):
+            assert part is not None
+            name, wildcard = part.groups()
+            concrete_name, concrete_index = concrete[position]
+            if name != concrete_name:
+                matches = False
+                break
+            if wildcard:
+                if concrete_index is None:
+                    matches = False
+                    break
+                wildcard_indexes.append(int(concrete_index))
+        if not matches:
+            continue
+        element_index = concrete[len(probe_parts) - 1][1]
+        if element_index is None:
+            continue
+        if isinstance(expected, list):
+            if not wildcard_indexes or wildcard_indexes[-1] >= len(expected):
+                return False
+            limit = int(expected[wildcard_indexes[-1]])
+        else:
+            limit = int(expected)
+        if int(element_index) >= limit:
+            return False
+    return True
+
+
 def resolve_generic(variable: str, sought: str) -> str:
     if not sought:
         return variable
@@ -244,6 +317,9 @@ DEFAULTS = {
     "noyes": False,
     "noyesradio": False,
     "noyeswide": False,
+    "yesnomaybe": False,
+    "noyesmaybe": False,
+    "threestate": False,
     "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
 }
 
@@ -281,6 +357,59 @@ def serialized_checkboxes(resolved: str, choices: list[Any], selected: Any) -> d
     }
 
 
+def serialized_object_choices(
+    resolved: str,
+    choices: list[Any],
+    selected: Any,
+    current_variables: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Serialize selected object references as the DAList expected by the API."""
+    if isinstance(selected, dict):
+        selected_names = [str(key) for key, value in selected.items() if value]
+    elif isinstance(selected, (list, tuple, set)):
+        selected_names = [str(value) for value in selected]
+    elif selected in (None, False, ""):
+        selected_names = []
+    else:
+        selected_names = [str(selected)]
+
+    available = {
+        str(choice.get("value")): choice
+        for choice in choices
+        if isinstance(choice, dict) and choice.get("value") is not None
+    }
+    unknown = [name for name in selected_names if name not in available]
+    if unknown:
+        raise ValueError(f"object selection for {resolved} contains unknown choices: {unknown}")
+    if current_variables is None:
+        raise ValueError(f"object selection for {resolved} requires current session variables")
+
+    template = serialized_path_value(current_variables, resolved)
+    if isinstance(template, dict) and template.get("_class"):
+        result = copy.deepcopy(template)
+    else:
+        result = {
+            "_class": "docassemble.base.util.DAList",
+            "instanceName": resolved,
+        }
+    elements = []
+    for name in selected_names:
+        source = serialized_path_value(current_variables, name)
+        if not isinstance(source, dict) or not source.get("_class"):
+            raise ValueError(f"object choice {name} is absent from current session variables")
+        elements.append(copy.deepcopy(source))
+    result.update(
+        {
+            "elements": elements,
+            "auto_gather": False,
+            "gathered": True,
+            "there_are_any": bool(elements),
+            "there_is_another": False,
+        }
+    )
+    return result
+
+
 def scenario_value(
     variables: dict[str, Any],
     resolved: str,
@@ -316,6 +445,7 @@ def answer_for_field(
     resolved: str,
     variables: dict[str, Any],
     sequence_positions: dict[str, int] | None = None,
+    current_variables: dict[str, Any] | None = None,
 ) -> Any:
     found, value = scenario_value(
         variables,
@@ -325,6 +455,9 @@ def answer_for_field(
     )
     if found:
         pass
+    elif field["datatype"] in {"object_checkboxes", "object_multiselect"}:
+        first = first_choice(field["choices"])
+        value = [] if first is None else [first]
     elif field["datatype"] == "file":
         value = ""
     elif field["datatype"] == "checkboxes":
@@ -339,6 +472,13 @@ def answer_for_field(
         value = DEFAULTS.get(str(field["inputtype"]), DEFAULTS.get(str(field["datatype"]), "Test"))
     if field["datatype"] == "checkboxes":
         return serialized_checkboxes(resolved, field["choices"], value)
+    if field["datatype"] in {"object_checkboxes", "object_multiselect"}:
+        return serialized_object_choices(
+            resolved,
+            field["choices"],
+            value,
+            current_variables,
+        )
     return value
 
 
@@ -354,6 +494,8 @@ def build_answer(
     question: dict[str, Any],
     scenario_variables: dict[str, Any],
     sequence_positions: dict[str, int] | None = None,
+    expected_cardinalities: dict[str, dict[str, Any]] | None = None,
+    current_variables: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     sought = question_variable(question)
     answer: dict[str, Any] = {}
@@ -362,6 +504,8 @@ def build_answer(
     for field in fields:
         raw = field["variable"]
         resolved = resolve_generic(raw, sought)
+        if not field_within_cardinalities(resolved, expected_cardinalities):
+            continue
         send_name = raw if raw.startswith(("x.", "x[")) else resolved
         if question.get("questionType") == "settrue":
             answer[send_name] = scenario_variables.get(
@@ -374,6 +518,7 @@ def build_answer(
                     resolved,
                     scenario_variables,
                     sequence_positions,
+                    current_variables,
                 )
             answer[send_name] = field_values[send_name]
 
@@ -578,6 +723,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 "fields": field_info(question),
                 "event_list": question.get("event_list") or [],
                 "question_name": question.get("questionName"),
+                "source": question.get("source"),
                 "mandatory": bool(question.get("mandatory")),
             }
             if question.get("questionType") == "undefined_variable":
@@ -647,9 +793,9 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                             "expected": probe["expected"],
                             "observed": observed_count,
                         }
-                        if observed_count is None and probe["expected"] == 0:
-                            observed_count = 0
-                            result["cardinality_evidence"][name]["observed"] = 0
+                        if observed_count is None and probe["expected"] in (0, []):
+                            observed_count = copy.deepcopy(probe["expected"])
+                            result["cardinality_evidence"][name]["observed"] = observed_count
                         if observed_count != probe["expected"]:
                             cardinality_mismatches[name] = result["cardinality_evidence"][name]
                     if cardinality_mismatches:
@@ -701,7 +847,26 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         result["failure"] = None
                 break
 
-            answer = build_answer(question, variables, sequence_positions)
+            needs_current_variables = any(
+                field["datatype"] in {"object_checkboxes", "object_multiselect"}
+                and field_within_cardinalities(
+                    resolve_generic(field["variable"], question_variable(question)),
+                    scenario.get("expected_cardinalities"),
+                )
+                for field in field_info(question)
+            )
+            current_variables = (
+                client.variables(interview, session, secret)
+                if needs_current_variables
+                else None
+            )
+            answer = build_answer(
+                question,
+                variables,
+                sequence_positions,
+                scenario.get("expected_cardinalities"),
+                current_variables,
+            )
             step["answer"] = answer
             # A repeated list-control screen is legitimate when a declared
             # sequence is advancing. Include the answer and sequence cursor in

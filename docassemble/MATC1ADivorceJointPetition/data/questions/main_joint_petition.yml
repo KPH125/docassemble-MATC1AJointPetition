@@ -569,6 +569,12 @@ code: |
 # parent-owned definition here so the standalone 16-row collector cannot
 # replace the fixed-count child loop.
 id: combined child details
+sets:
+  - children[i].name.first
+  - children[i].name.last
+  - children[i].name.middle
+  - children[i].name.suffix
+  - children[i].birthdate
 question: |
   Information about your ${ ordinal(i) } child
 fields:
