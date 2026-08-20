@@ -161,11 +161,17 @@ code: |
     users1_number_of_custodial_children = 0
     users2_number_of_custodial_children = 0
   if need_r408_demographics:
-    r408_demographics
+    users1_gender
+    users2_gender
+    users1_ssn_last_four
+    users2_ssn_last_four
   if need_r408_marriage_numbers:
-    r408_prior_marriages_and_birth_names
+    users1_marriage_number
+    users2_marriage_number
+    users1_name_last_at_birth
+    users2_name_last_at_birth
   if need_r408_addendum:
-    r408_additional_children_info
+    r408_addendum
   interview_order_r408 = True
 ---
 objects:
