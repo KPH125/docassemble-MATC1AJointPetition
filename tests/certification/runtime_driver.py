@@ -37,6 +37,18 @@ def question_id(question: dict[str, Any]) -> str:
     return str(question.get("id") or question.get("questionName") or "<unnamed>")
 
 
+def question_source_file(question: dict[str, Any], interview: str) -> str:
+    """Return a compact, stable locator for the question's interview file."""
+    source = question.get("source")
+    if isinstance(source, dict):
+        history = source.get("history")
+        if isinstance(history, dict) and history.get("source_file"):
+            return str(history["source_file"])
+    # Docassemble omits source_file for questions defined by the root
+    # interview, so the resolved interview name is the authoritative fallback.
+    return interview
+
+
 def question_variable(question: dict[str, Any]) -> str:
     direct = str(
         question.get("question_variable_name")
@@ -723,7 +735,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 "fields": field_info(question),
                 "event_list": question.get("event_list") or [],
                 "question_name": question.get("questionName"),
-                "source": question.get("source"),
+                "source_file": question_source_file(question, interview),
                 "mandatory": bool(question.get("mandatory")),
             }
             if question.get("questionType") == "undefined_variable":

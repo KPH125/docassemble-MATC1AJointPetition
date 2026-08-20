@@ -7,6 +7,7 @@ from runtime_driver import (
     Limits,
     build_answer,
     field_within_cardinalities,
+    question_source_file,
     run_scenario,
     serialized_collection_count,
     serialized_object_choices,
@@ -79,6 +80,27 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_question_source_file_uses_included_file_history(self):
+        question = {
+            "source": {
+                "history": {
+                    "source_file": "docassemble.child:data/questions/child.yml",
+                    "source_code": "question: Child question",
+                },
+                "readability": {"score": 1},
+            }
+        }
+        self.assertEqual(
+            question_source_file(question, SCENARIO["interview"]),
+            "docassemble.child:data/questions/child.yml",
+        )
+
+    def test_question_source_file_falls_back_to_root_interview(self):
+        self.assertEqual(
+            question_source_file({"source": {"history": {}}}, SCENARIO["interview"]),
+            SCENARIO["interview"],
+        )
+
     def test_serialized_collection_count(self):
         self.assertEqual(
             serialized_collection_count({"_class": "DAList", "elements": [{}, {}]}),
