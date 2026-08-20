@@ -47,7 +47,6 @@ def audit(
     model: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     runtime_records = runtime_screen_records(ledger)
-    observed_coordinates = {screen_coordinate(record) for record in runtime_records}
     observed_ids = {
         str(record["id"])
         for record in runtime_records
@@ -65,6 +64,31 @@ def audit(
     ]
     feature_declared = {screen_coordinate(screen) for screen in feature_screens}
     framework_catalog = {screen_coordinate(screen) for screen in framework_screens}
+    catalog_coordinates = feature_declared | framework_catalog
+    catalog_by_fingerprint: dict[str, set[str]] = {}
+    for screen in catalog["screens"]:
+        fingerprint = screen.get("source_fingerprint")
+        if fingerprint:
+            catalog_by_fingerprint.setdefault(str(fingerprint), set()).add(
+                screen_coordinate(screen)
+            )
+
+    def resolved_runtime_coordinate(record: dict[str, Any]) -> str:
+        direct = screen_coordinate(record)
+        if direct in catalog_coordinates:
+            return direct
+        # Docassemble's debug API sometimes reports only a basename or omits
+        # ``data/questions`` for included files. The canonical YAML-document
+        # fingerprint still identifies the exact static block. Resolve only a
+        # unique match; duplicated blocks remain explicit audit failures.
+        candidates = catalog_by_fingerprint.get(
+            str(record.get("source_fingerprint") or ""), set()
+        )
+        return next(iter(candidates)) if len(candidates) == 1 else direct
+
+    observed_coordinates = {
+        resolved_runtime_coordinate(record) for record in runtime_records
+    }
     # Feature-package screens are exhaustive obligations. Framework packages
     # also contain generic saved-session, authoring, and standalone utility
     # screens that this interview never calls; any framework screen actually

@@ -169,26 +169,13 @@ def serialized_collection_count(value: Any) -> int | None:
     return None
 
 
-def serialized_collection_elements(value: Any) -> list[Any]:
-    if isinstance(value, list):
-        return value
-    if isinstance(value, dict):
-        elements = value.get("elements")
-        if isinstance(elements, list):
-            return elements
-        if isinstance(elements, dict):
-            return list(elements.values())
-    return []
-
-
-def serialized_bundle_evidence(value: Any) -> dict[str, dict[str, Any]]:
-    """Compact a serialized ALDocumentBundle into generated-file evidence."""
+def serialized_download_evidence(value: Any) -> dict[str, Any]:
+    """Compact the exact ``_downloadable_files`` produced by the background task."""
 
     def file_records(node: Any) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
         if isinstance(node, dict):
-            class_name = str(node.get("_class", ""))
-            if class_name.endswith("DAFile"):
+            if str(node.get("_class", "")).endswith("DAFile"):
                 records.append(
                     {
                         "filename": node.get("filename"),
@@ -206,40 +193,38 @@ def serialized_bundle_evidence(value: Any) -> dict[str, dict[str, Any]]:
                 records.extend(file_records(nested))
         return records
 
-    result: dict[str, dict[str, Any]] = {}
-    for document in serialized_collection_elements(value):
+    document_results = value[0] if isinstance(value, list) and value else []
+    documents = []
+    for document in document_results if isinstance(document_results, list) else []:
         if not isinstance(document, dict):
             continue
-        name = str(document.get("instanceName") or "<unnamed>")
-        cache = document.get("cache")
-        cached_enabled = cache.get("enabled") if isinstance(cache, dict) else None
-        if document.get("always_enabled") is True:
-            enabled = True
-        elif isinstance(cached_enabled, bool):
-            enabled = cached_enabled
-        elif isinstance(document.get("enabled"), bool):
-            enabled = document["enabled"]
-        else:
-            enabled = None
-        files = file_records(document.get("elements"))
-        # Final and preview collections can serialize the same physical file
-        # more than once; retain one deterministic record per visible shape.
-        unique_files = {
-            canonical(record): record
-            for record in files
-        }
-        result[name] = {
-            "enabled": enabled,
-            "generated": any(record.get("ok") is True for record in unique_files.values()),
-            "files": sorted(
-                unique_files.values(),
-                key=lambda record: (
-                    str(record.get("filename")),
-                    str(record.get("extension")),
+        files = {canonical(record): record for record in file_records(document)}
+        documents.append(
+            {
+                "title": document.get("title"),
+                "files": sorted(
+                    files.values(),
+                    key=lambda record: (
+                        str(record.get("filename")),
+                        str(record.get("extension")),
+                    ),
                 ),
+            }
+        )
+    bundle_files = {
+        canonical(record): record
+        for record in file_records(value[1:] if isinstance(value, list) else [])
+    }
+    return {
+        "documents": documents,
+        "bundle_files": sorted(
+            bundle_files.values(),
+            key=lambda record: (
+                str(record.get("filename")),
+                str(record.get("extension")),
             ),
-        }
-    return result
+        ),
+    }
 
 
 def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[int] | None:
@@ -289,6 +274,8 @@ def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[i
 
 def serialized_path_value(root: dict[str, Any], path: str) -> Any:
     """Return a value from Docassemble's nested serialized object format."""
+    if path in root:
+        return root[path]
     value: Any = root
     for part in path.split("."):
         match = re.fullmatch(r"([^\[]+)(?:\[(\d+)\])?", part)
@@ -307,6 +294,15 @@ def serialized_path_value(root: dict[str, Any], path: str) -> Any:
             else:
                 return None
     return value
+
+
+def concrete_cardinality_paths(variable: str, expected: Any) -> list[str]:
+    """Expand one wildcard collection path into the finite modeled paths."""
+    if "[*]" not in variable:
+        return [variable]
+    if not isinstance(expected, list):
+        raise ValueError(f"wildcard cardinality {variable} requires a list expectation")
+    return [variable.replace("[*]", f"[{index}]", 1) for index in range(len(expected))]
 
 
 def field_within_cardinalities(
@@ -616,6 +612,18 @@ def build_answer(
         resolved = resolve_generic(raw, sought)
         if not field_within_cardinalities(resolved, expected_cardinalities):
             continue
+        if field["datatype"] == "object" and any(
+            resolve_generic(other["variable"], sought).startswith(resolved + ".")
+            for other in fields
+            if other is not field
+        ):
+            # A Docassemble object-choice field with ``disable others`` shares
+            # a screen with fields for constructing a new object. Submitting
+            # both the choice's string instance name and nested properties
+            # replaces the object with a string before the nested assignments.
+            # Leave the optional existing-object choice unanswered and fill
+            # the typed nested object instead.
+            continue
         send_name = raw if raw.startswith(("x.", "x[")) else resolved
         if question.get("questionType") == "settrue":
             answer[send_name] = scenario_variables.get(
@@ -745,10 +753,29 @@ class Client:
         response.raise_for_status()
         return response.json()
 
-    def variables(self, interview: str, session: str, secret: str) -> dict[str, Any]:
-        response = self.http.get(
-            f"{self.server}/api/session",
-            params=self._params(interview, session, secret),
+    def snapshot(
+        self,
+        interview: str,
+        session: str,
+        secret: str,
+        *,
+        values: list[str] | None = None,
+        counts: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Fetch a compact read-only snapshot without serializing the whole session."""
+        payload = self._params(interview, session, secret)
+        payload.update(
+            {
+                "action": "combined certification snapshot",
+                "read_only": 1,
+                "arguments": canonical(
+                    {"values": values or [], "counts": counts or []}
+                ),
+            }
+        )
+        response = self.http.post(
+            f"{self.server}/api/session/action",
+            data=payload,
             timeout=self.timeout,
         )
         response.raise_for_status()
@@ -895,7 +922,6 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                     result["failure"] = "unexpected_terminal"
                     result["expected_terminal_ids"] = sorted(expected_terminal_ids)
                 else:
-                    terminal_variables = client.variables(interview, session, secret)
                     evidence_names = (
                         "divorcejointpetition_downloads_ready",
                         "include_r408",
@@ -908,31 +934,74 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         "include_findings_and_determinations",
                         "needs_late_marriage_certificate_motion",
                     )
+                    cardinality_paths = {
+                        name: concrete_cardinality_paths(
+                            probe["variable"], probe["expected"]
+                        )
+                        for name, probe in scenario.get(
+                            "expected_cardinalities", {}
+                        ).items()
+                    }
+                    terminal_variables = client.snapshot(
+                        interview,
+                        session,
+                        secret,
+                        values=list(evidence_names)
+                        + [
+                            "combined_bundle_enabled_document_names",
+                            "al_user_bundle._downloadable_files",
+                        ],
+                        counts=[
+                            path
+                            for paths in cardinality_paths.values()
+                            for path in paths
+                        ],
+                    )
                     result["terminal_evidence"] = {
                         name: terminal_variables[name]
                         for name in evidence_names
                         if name in terminal_variables
                     }
-                    result["bundle_evidence"] = serialized_bundle_evidence(
-                        terminal_variables.get("al_user_bundle")
+                    enabled_documents = set(
+                        terminal_variables.get(
+                            "combined_bundle_enabled_document_names", []
+                        )
+                    )
+                    result["bundle_enabled_documents"] = sorted(enabled_documents)
+                    result["bundle_download_evidence"] = serialized_download_evidence(
+                        terminal_variables.get("al_user_bundle._downloadable_files")
                     )
                     expected_bundle = scenario.get("expected_bundle_documents", {})
-                    bundle_mismatches = {}
-                    for name, expected_generated in expected_bundle.items():
-                        observed_document = result["bundle_evidence"].get(name)
-                        observed_generated = bool(
-                            observed_document and observed_document.get("generated")
-                        )
-                        failed_files = [
-                            record
-                            for record in (observed_document or {}).get("files", [])
-                            if record.get("ok") is False
-                        ]
-                        if observed_generated != expected_generated or failed_files:
-                            bundle_mismatches[name] = {
-                                "expected_generated": expected_generated,
-                                "observed": observed_document,
-                            }
+                    expected_enabled = {
+                        name for name, expected in expected_bundle.items() if expected
+                    }
+                    bundle_mismatches = {
+                        name: {
+                            "expected_enabled": expected,
+                            "observed_enabled": name in enabled_documents,
+                        }
+                        for name, expected in expected_bundle.items()
+                        if (name in enabled_documents) != expected
+                    }
+                    for name in enabled_documents - set(expected_bundle):
+                        bundle_mismatches[name] = {
+                            "expected_enabled": False,
+                            "observed_enabled": True,
+                        }
+                    download_documents = result["bundle_download_evidence"]["documents"]
+                    failed_downloads = [
+                        document
+                        for document in download_documents
+                        if not document["files"]
+                        or any(file.get("ok") is False for file in document["files"])
+                    ]
+                    if len(download_documents) != len(expected_enabled):
+                        bundle_mismatches["<download-count>"] = {
+                            "expected": len(expected_enabled),
+                            "observed": len(download_documents),
+                        }
+                    if failed_downloads:
+                        bundle_mismatches["<failed-downloads>"] = failed_downloads
                     if bundle_mismatches:
                         result["failure"] = "bundle_document_mismatch"
                         result["bundle_document_mismatches"] = bundle_mismatches
@@ -941,15 +1010,13 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                     cardinality_mismatches = {}
                     for name, probe in scenario.get("expected_cardinalities", {}).items():
                         variable_name = probe["variable"]
-                        if variable_name in terminal_variables:
-                            observed_count = serialized_collection_count(
-                                terminal_variables[variable_name]
-                            )
+                        paths = cardinality_paths[name]
+                        if isinstance(probe["expected"], list):
+                            observed_count = [
+                                terminal_variables.get(path, 0) for path in paths
+                            ]
                         else:
-                            observed_count = serialized_path_cardinality(
-                                terminal_variables,
-                                variable_name,
-                            )
+                            observed_count = terminal_variables.get(paths[0], 0)
                         result["cardinality_evidence"][name] = {
                             "variable": variable_name,
                             "expected": probe["expected"],
@@ -1020,7 +1087,22 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 for field in field_info(question)
             )
             current_variables = (
-                client.variables(interview, session, secret)
+                client.snapshot(
+                    interview,
+                    session,
+                    secret,
+                    values=sorted(
+                        {
+                            str(choice.get("value"))
+                            for field in field_info(question)
+                            if field["datatype"]
+                            in {"object_checkboxes", "object_multiselect"}
+                            for choice in field["choices"]
+                            if isinstance(choice, dict)
+                            and choice.get("value") is not None
+                        }
+                    ),
+                )
                 if needs_current_variables
                 else None
             )

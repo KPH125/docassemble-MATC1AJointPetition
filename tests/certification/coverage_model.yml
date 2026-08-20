@@ -90,6 +90,8 @@ default_variables:
   custody_case_participation: no cases
   children[i].has_gal: false
   children[i].gals.target_number: 0
+  children[i].address.country: USA
+  children[i].address.start_date: '2024'
 
 # These are the finite path archetypes. Each entry is a complete modeled path:
 # the generator overlays it on default_variables and the runtime ledger proves

@@ -123,6 +123,29 @@ class CoverageAuditTests(unittest.TestCase):
             }],
         )
 
+    def test_unique_fingerprint_resolves_abbreviated_runtime_source_file(self):
+        catalog = {
+            "screens": [{
+                "id": "petition",
+                "source_file": "docassemble.example:data/questions/petition.yml",
+                "source_fingerprint": "exact-block",
+            }]
+        }
+        ledger = {
+            "results": [{
+                "name": "path",
+                "status": "pass",
+                "steps": [{
+                    "id": "petition",
+                    "source_file": "petition.yml",
+                    "source_fingerprint": "exact-block",
+                }],
+            }]
+        }
+        report = audit(catalog, ledger, {"proven_unreachable": {}})
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["observed_local_screens"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

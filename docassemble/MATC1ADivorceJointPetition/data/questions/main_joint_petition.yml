@@ -308,6 +308,29 @@ code: |
   divorcejointpetition_downloads_ready = True
   background_response()
 ---
+# The certification client uses this authenticated, read-only action instead
+# of GET /api/session. Serializing the complete interview dictionary traverses
+# every ALDocument in the session and can itself generate unrelated previews.
+# Return only the requested values and plain collection counts so observation
+# cannot change packet membership or exhaust the runtime under test.
+event: combined certification snapshot
+code: |
+  certification_snapshot = {}
+  for variable_name in action_argument("values") or []:
+    if defined(variable_name):
+      certification_snapshot[variable_name] = value(variable_name)
+  for variable_name in action_argument("counts") or []:
+    if defined(variable_name):
+      certification_collection = value(variable_name)
+      certification_snapshot[variable_name] = len(
+        certification_collection.elements
+        if hasattr(certification_collection, "elements")
+        else certification_collection
+      )
+    else:
+      certification_snapshot[variable_name] = 0
+  json_response(certification_snapshot)
+---
 code: |
   enable_al_nav_sections = True
 ---
@@ -716,6 +739,7 @@ code: |
   divorcejointpetition_preview_question
   basic_questions_signature_flow
 
+  combined_bundle_enabled_document_names
   if not defined("divorcejointpetition_downloads_ready"):
     if al_user_bundle.generate_downloads_with_docx_task.ready():
       divorcejointpetition_downloads_ready = True
@@ -723,3 +747,10 @@ code: |
       al_download_waiting_screen
 
   divorcejointpetition_download
+---
+id: combined bundle enabled document names
+code: |
+  combined_bundle_enabled_document_names = [
+    document.instanceName
+    for document in al_user_bundle.enabled_documents(refresh=True)
+  ]

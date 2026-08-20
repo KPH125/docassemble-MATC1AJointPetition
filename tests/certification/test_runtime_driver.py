@@ -10,7 +10,7 @@ from runtime_driver import (
     question_source_file,
     run_scenario,
     serialized_collection_count,
-    serialized_bundle_evidence,
+    serialized_download_evidence,
     serialized_object_choices,
     serialized_path_cardinality,
     serialized_path_value,
@@ -71,8 +71,19 @@ class FakeClient:
     ):
         return {}
 
-    def variables(self, interview, session, secret):
-        return self.terminal_variables
+    def snapshot(self, interview, session, secret, *, values=None, counts=None):
+        result = {
+            name: self.terminal_variables[name]
+            for name in (values or [])
+            if name in self.terminal_variables
+        }
+        for name in counts or []:
+            if name not in self.terminal_variables:
+                continue
+            value = self.terminal_variables[name]
+            count = serialized_collection_count(value)
+            result[name] = value if count is None else count
+        return result
 
     def action(self, interview, session, secret, action, arguments=None):
         self.pending_action = action
@@ -82,39 +93,6 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
-    def test_serialized_bundle_evidence_records_exact_generated_files(self):
-        bundle = {
-            "_class": "docassemble.AssemblyLine.al_document.ALDocumentBundle",
-            "elements": [
-                {
-                    "instanceName": "included_attachment",
-                    "always_enabled": False,
-                    "cache": {"enabled": True},
-                    "elements": {
-                        "preview": {
-                            "pdf": {
-                                "_class": "docassemble.base.util.DAFile",
-                                "filename": "included.pdf",
-                                "extension": "pdf",
-                                "ok": True,
-                                "file_info": {"pages": 2},
-                            }
-                        }
-                    },
-                },
-                {
-                    "instanceName": "excluded_attachment",
-                    "always_enabled": False,
-                    "cache": {"enabled": False},
-                    "elements": {},
-                },
-            ],
-        }
-        evidence = serialized_bundle_evidence(bundle)
-        self.assertTrue(evidence["included_attachment"]["generated"])
-        self.assertEqual(evidence["included_attachment"]["files"][0]["pages"], 2)
-        self.assertFalse(evidence["excluded_attachment"]["generated"])
-
     def test_bundle_membership_mismatch_fails_terminal(self):
         terminal = {
             "id": "download divorce joint petition",
@@ -127,6 +105,53 @@ class RuntimeDriverTests(unittest.TestCase):
         }
         result = run_scenario(FakeClient([terminal]), scenario, limits())
         self.assertEqual(result["failure"], "bundle_document_mismatch")
+
+    def test_exact_enabled_bundle_and_background_download_pass_terminal(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        file_value = {
+            "_class": "docassemble.base.util.DAFile",
+            "filename": "required.pdf",
+            "extension": "pdf",
+            "ok": True,
+        }
+        client = FakeClient(
+            [terminal],
+            terminal_variables={
+                "divorcejointpetition_downloads_ready": True,
+                "combined_bundle_enabled_document_names": ["required_attachment"],
+                "al_user_bundle._downloadable_files": [
+                    [{"title": "Required", "pdf": file_value}],
+                    None,
+                    None,
+                ],
+            },
+        )
+        scenario = {
+            **SCENARIO,
+            "expected_bundle_documents": {"required_attachment": True},
+        }
+        result = run_scenario(client, scenario, limits())
+        self.assertEqual(result["status"], "pass")
+        self.assertIsNone(result["failure"])
+
+    def test_download_evidence_reads_only_background_results(self):
+        file_value = {
+            "_class": "docassemble.base.util.DAFile",
+            "filename": "petition.pdf",
+            "extension": "pdf",
+            "ok": True,
+            "file_info": {"pages": 2},
+        }
+        evidence = serialized_download_evidence(
+            [[{"title": "Petition", "pdf": file_value}], None, file_value]
+        )
+        self.assertEqual(evidence["documents"][0]["title"], "Petition")
+        self.assertEqual(evidence["documents"][0]["files"][0]["pages"], 2)
+        self.assertEqual(len(evidence["bundle_files"]), 1)
 
     def test_question_source_file_uses_included_file_history(self):
         question = {
@@ -313,6 +338,33 @@ class RuntimeDriverTests(unittest.TestCase):
             {
                 "children[0].has_gal": False,
                 "children[0].gals.target_number": 0,
+            },
+        )
+
+    def test_object_choice_is_omitted_when_same_screen_builds_nested_object(self):
+        question = {
+            "event_list": ["children[0].address.address"],
+            "fields": [
+                {
+                    "variable_name": "children[i].address",
+                    "datatype": "object",
+                    "choices": [{"label": "Home", "value": "marital_home"}],
+                },
+                {
+                    "variable_name": "children[i].address.address",
+                    "datatype": "text",
+                },
+                {
+                    "variable_name": "children[i].address.city",
+                    "datatype": "text",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {
+                "children[0].address.address": "Test",
+                "children[0].address.city": "Test",
             },
         )
 

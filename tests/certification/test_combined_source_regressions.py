@@ -24,6 +24,36 @@ def identified_code(filename: str, block_id: str) -> str:
 
 
 class CombinedSourceRegressionTests(unittest.TestCase):
+    def test_certification_snapshot_is_compact_and_bundle_evidence_precedes_generation(self):
+        all_documents = documents("main_joint_petition.yml")
+        snapshots = [
+            document
+            for document in all_documents
+            if document.get("event") == "combined certification snapshot"
+        ]
+        self.assertEqual(len(snapshots), 1)
+        snapshot = str(snapshots[0].get("code", ""))
+        self.assertIn('action_argument("values")', snapshot)
+        self.assertIn('action_argument("counts")', snapshot)
+        self.assertIn("json_response(certification_snapshot)", snapshot)
+
+        order_documents = [
+            document
+            for document in all_documents
+            if document.get("mandatory") is True
+            and "joint_petition_interview_order" in str(document.get("code", ""))
+        ]
+        self.assertEqual(len(order_documents), 1)
+        order = str(order_documents[0]["code"])
+        self.assertLess(
+            order.index("combined_bundle_enabled_document_names"),
+            order.index("generate_downloads_with_docx_task"),
+        )
+        bundle_names = identified_code(
+            "main_joint_petition.yml", "combined bundle enabled document names"
+        )
+        self.assertIn("al_user_bundle.enabled_documents(refresh=True)", bundle_names)
+
     def test_combined_parent_clears_standalone_document_enablement(self):
         order = identified_code("main_joint_petition.yml", "joint petition interview order")
         self.assertIn("combined_bundle_documents_normalized", order)

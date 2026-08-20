@@ -16,7 +16,9 @@ of example runs.
 - `runtime_driver.py` drives fresh API sessions and writes every transition,
   answer, terminal state, generated bundle member, error, and timeout to a
   ledger. Screens are keyed by package/file plus a fingerprint of the exact
-  YAML block, so reused IDs cannot satisfy each other.
+  YAML block, so reused IDs cannot satisfy each other. If Docassemble reports
+  an abbreviated source locator, the audit accepts it only when that exact
+  fingerprint has one unambiguous catalog match.
 - `verify_runtime_manifest.py` rejects image or external-package drift before
   a runtime result can count.
 - `screen_classification.yml` is the only place an exact local screen block may
@@ -56,4 +58,9 @@ python3 -m unittest discover -s tests/certification -p 'test_*.py' -v
 ```
 
 Runtime tests require a Docassemble server and API key. CI supplies both using
-an isolated Docker container.
+an isolated Docker container. Terminal assertions use the interview's
+authenticated, read-only `combined certification snapshot` action rather than
+`GET /api/session`: serializing the complete interview dictionary can traverse
+ALDocument objects and generate previews merely by observing them. Exact packet
+membership is proved from `enabled_documents()` immediately before generation,
+then corroborated against the background task's `_downloadable_files` results.
