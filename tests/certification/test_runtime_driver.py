@@ -98,6 +98,13 @@ class RuntimeDriverTests(unittest.TestCase):
             [2, 0],
         )
 
+    def test_missing_nested_collection_serializes_as_zero(self):
+        variables = {"children": {"elements": [{}, {}]}}
+        self.assertEqual(
+            serialized_path_cardinality(variables, "children[*].previous_addresses"),
+            [0, 0],
+        )
+
     def test_settrue_field_defaults_to_boolean_true(self):
         question = {
             "questionType": "settrue",
@@ -174,6 +181,29 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertEqual(
             build_answer(question, {"children[i].previous_addresses.there_are_any": True}),
             {"children[2].previous_addresses.there_are_any": True},
+        )
+
+    def test_event_list_resolves_source_iterator_to_concrete_index(self):
+        question = {
+            "event_list": ["users[1].employer_address_street"],
+            "fields": [
+                {
+                    "variable_name": "users[i].employer_address.address",
+                    "datatype": "text",
+                },
+                {
+                    "variable_name": "users[i].employer_address.city",
+                    "datatype": "text",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {
+                "users[1].employer_address.address": "Test",
+                "users[1].employer_address.city": "Test",
+                "users[1].employer_address_street": True,
+            },
         )
 
     def test_modeled_sequence_controls_repeated_list_answers(self):
@@ -332,6 +362,29 @@ class RuntimeDriverTests(unittest.TestCase):
             result["cardinality_evidence_mismatches"]["children"]["observed"],
             1,
         )
+
+    def test_absent_optional_collection_counts_as_zero(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_cardinalities": {
+                "children": {"variable": "children", "expected": 0},
+            },
+        }
+        result = run_scenario(
+            FakeClient(
+                [terminal],
+                terminal_variables={"divorcejointpetition_downloads_ready": True},
+            ),
+            scenario,
+            limits(),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["cardinality_evidence"]["children"]["observed"], 0)
 
     def test_declared_event_probe_adds_its_screen_to_coverage(self):
         terminal = {

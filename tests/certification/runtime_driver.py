@@ -37,12 +37,20 @@ def question_id(question: dict[str, Any]) -> str:
 
 
 def question_variable(question: dict[str, Any]) -> str:
-    return str(
+    direct = str(
         question.get("question_variable_name")
         or question.get("continue_button_field")
         or question.get("continueButtonField")
         or ""
     )
+    if direct:
+        return direct
+    # For reusable questions whose source fields contain ``[i]``, the API
+    # exposes the concrete variable being sought in ``event_list`` even when
+    # it omits question_variable_name. That concrete name is authoritative for
+    # resolving the iterator before submitting the answer.
+    events = question.get("event_list") or []
+    return str(events[0]) if events else ""
 
 
 def question_fingerprint(question: dict[str, Any]) -> str:
@@ -137,7 +145,8 @@ def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[i
     """Count a serialized collection at a dotted path, with ``[*]`` fan-out."""
     values: list[Any] = [root]
     used_wildcard = False
-    for part in path.split("."):
+    parts = path.split(".")
+    for part_index, part in enumerate(parts):
         match = re.fullmatch(r"([^\[]+)(?:\[(\*|\d+)\])?", part)
         if not match:
             return None
@@ -145,6 +154,11 @@ def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[i
         next_values: list[Any] = []
         for container in values:
             if not isinstance(container, dict) or name not in container:
+                # A missing nested collection on an existing wildcard parent
+                # is Docassemble's serialized representation of an empty
+                # optional list. Preserve that parent as cardinality zero.
+                if used_wildcard and part_index == len(parts) - 1:
+                    next_values.append([])
                 continue
             value = container[name]
             if index is None:
@@ -173,7 +187,14 @@ def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[i
 
 
 def resolve_generic(variable: str, sought: str) -> str:
-    if not variable.startswith(("x.", "x[")) or not sought:
+    if not sought:
+        return variable
+    if "[i]" in variable:
+        generic_root = variable.split("[i]", 1)[0]
+        index_match = re.search(rf"^{re.escape(generic_root)}\[(\d+)\]", sought)
+        if index_match:
+            return variable.replace("[i]", f"[{index_match.group(1)}]", 1)
+    if not variable.startswith(("x.", "x[")):
         return variable
     object_name = re.split(r"[.[]", sought, maxsplit=1)[0]
     index_match = re.search(r"\[(\d+)\]", sought)
@@ -362,7 +383,7 @@ def build_answer(
     hidden_names: set[str] = set()
     visible_names: set[str] = set()
     for field in fields:
-        controller = field.get("show_if_var")
+        controller = resolve_generic(str(field.get("show_if_var") or ""), sought)
         # The API can expose a Python expression (for example,
         # ``not showifdef("users1_gender")``) in show_if_var. We can safely
         # evaluate only a controller that is another submitted field on this
@@ -626,6 +647,9 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                             "expected": probe["expected"],
                             "observed": observed_count,
                         }
+                        if observed_count is None and probe["expected"] == 0:
+                            observed_count = 0
+                            result["cardinality_evidence"][name]["observed"] = 0
                         if observed_count != probe["expected"]:
                             cardinality_mismatches[name] = result["cardinality_evidence"][name]
                     if cardinality_mismatches:
