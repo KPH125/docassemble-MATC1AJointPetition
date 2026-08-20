@@ -45,6 +45,20 @@ class CatalogTests(unittest.TestCase):
         ):
             self.assertIn(screen_id, screen_ids)
 
+    def test_catalog_separates_feature_screens_from_framework_support(self):
+        scopes = {
+            (screen["package"], screen["coverage_scope"])
+            for screen in self.catalog["screens"]
+        }
+        self.assertIn(
+            ("docassemble.MATCFinancialStatement", "combined_feature"),
+            scopes,
+        )
+        self.assertIn(
+            ("docassemble.AssemblyLine", "framework_support"),
+            scopes,
+        )
+
     def test_catalog_finds_known_top_level_branch_conditions(self):
         expressions = {branch["expression"] for branch in self.catalog["branches"]}
         self.assertIn("has_existing_1b_action", expressions)

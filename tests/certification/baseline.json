@@ -17,6 +17,25 @@
       "reason": "Known fix for the separation-agreement merge loop"
     }
   ],
+  "coverage_scope": {
+    "feature_packages": [
+      "docassemble.MATC1ADivorceJointPetition",
+      "docassemble.MATCMotionToAmend",
+      "docassemble.MATCFinancialStatement",
+      "docassemble.MATCSeparationAgreement",
+      "docassemble.MATCChildCareOrCustodyDisclosureAffidavit",
+      "docassemble.MATCCSGWorksheet",
+      "docassemble.matcfindingsanddeterminations",
+      "docassemble.ALAffidavitOfIndigency"
+    ],
+    "framework_packages": [
+      "docassemble.AssemblyLine",
+      "docassemble.ALMassachusetts",
+      "docassemble.ALToolbox",
+      "docassemble.MassAccess",
+      "docassemble.GithubFeedbackForm"
+    ]
+  },
   "packages": {
     "docassemble.MATC1ADivorceJointPetition": {
       "repository": "SuffolkLITLab/docassemble-MATC1ADivorceJointPetition",

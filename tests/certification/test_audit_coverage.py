@@ -4,6 +4,44 @@ from audit_coverage import audit
 
 
 class CoverageAuditTests(unittest.TestCase):
+    def test_unobserved_framework_utility_is_not_a_combined_feature_obligation(self):
+        catalog = {
+            "screens": [
+                {"id": "feature", "coverage_scope": "combined_feature"},
+                {"id": "saved sessions", "coverage_scope": "framework_support"},
+            ]
+        }
+        ledger = {
+            "results": [{
+                "name": "path",
+                "status": "pass",
+                "seen_screen_ids": ["feature"],
+            }]
+        }
+        report = audit(catalog, ledger, {"proven_unreachable": {}})
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["unobserved_framework_catalog_screen_ids"], 1)
+
+    def test_missing_cardinality_class_fails(self):
+        catalog = {"screens": [{"id": "one"}]}
+        ledger = {
+            "results": [{
+                "name": "path",
+                "status": "pass",
+                "seen_screen_ids": ["one"],
+                "cardinality_evidence": {
+                    "items": {"expected": 1, "observed": 1},
+                },
+            }]
+        }
+        model = {
+            "modeled_paths": [{"name": "path"}],
+            "cardinality_classes": {"items": [0, 1, 2]},
+        }
+        report = audit(catalog, ledger, {"proven_unreachable": {}}, model)
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["missing_cardinality_classes"], {"items": [0, 2]})
+
     def test_missing_declared_screen_fails(self):
         catalog = {"screens": [{"id": "one"}, {"id": "two"}]}
         ledger = {"results": [{"name": "path", "status": "pass", "seen_screen_ids": ["one"]}]}

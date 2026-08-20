@@ -76,6 +76,17 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         ):
             self.assertIn(variable, order)
 
+    def test_combined_parent_owns_fixed_count_child_details(self):
+        child_questions = [
+            document
+            for document in documents("main_joint_petition.yml")
+            if document.get("id") == "combined child details"
+        ]
+        self.assertEqual(len(child_questions), 1)
+        question = child_questions[0]
+        self.assertNotIn("list collect", question)
+        self.assertIn("children[i].birthdate", str(question.get("fields", [])))
+
 
 if __name__ == "__main__":
     unittest.main()

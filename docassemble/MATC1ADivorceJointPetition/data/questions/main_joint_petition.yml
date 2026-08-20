@@ -491,6 +491,20 @@ code: |
     petition_request_survive_agreement = request_survive_agreement
   set_petition_merger_survival_values = True
 ---
+# The care-or-custody package also ships a standalone list-collect definition
+# for children[i].name.first. In the combined interview, the spouses already
+# chose an exact child count and children.target_number is set from it. Keep a
+# parent-owned definition here so the standalone 16-row collector cannot
+# replace the fixed-count child loop.
+id: combined child details
+question: |
+  Information about your ${ ordinal(i) } child
+fields:
+  - code: |
+      children[i].name_fields()
+  - Birthdate: children[i].birthdate
+    datatype: date
+---
 comment: |
   Search only the venue address worked out in divorce_joint_petition.yml.
   This lives in the top-level file on purpose: it is loaded after every

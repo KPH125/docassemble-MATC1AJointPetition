@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import requests
 
-from runtime_driver import Limits, build_answer, run_scenario
+from runtime_driver import Limits, build_answer, run_scenario, serialized_collection_count
 
 
 SCENARIO = {
@@ -27,9 +27,12 @@ def limits(**overrides):
 
 
 class FakeClient:
-    def __init__(self, questions, actions=None):
+    def __init__(self, questions, actions=None, terminal_variables=None):
         self.questions = iter(questions)
         self.actions = actions or {}
+        self.terminal_variables = terminal_variables or {
+            "divorcejointpetition_downloads_ready": True,
+        }
         self.pending_action = None
 
     def new_session(self, interview):
@@ -57,7 +60,7 @@ class FakeClient:
         return {}
 
     def variables(self, interview, session, secret):
-        return {"divorcejointpetition_downloads_ready": True}
+        return self.terminal_variables
 
     def action(self, interview, session, secret, action, arguments=None):
         self.pending_action = action
@@ -67,6 +70,14 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_serialized_collection_count(self):
+        self.assertEqual(
+            serialized_collection_count({"_class": "DAList", "elements": [{}, {}]}),
+            2,
+        )
+        self.assertEqual(serialized_collection_count([]), 0)
+        self.assertIsNone(serialized_collection_count("not a collection"))
+
     def test_settrue_field_defaults_to_boolean_true(self):
         question = {
             "questionType": "settrue",
@@ -181,6 +192,34 @@ class RuntimeDriverTests(unittest.TestCase):
         result = run_scenario(FakeClient([stuck, stuck, stuck]), SCENARIO, limits())
         self.assertEqual(result["failure"], "consecutive_repeated_state")
 
+    def test_advancing_modeled_list_sequence_is_not_a_false_hang(self):
+        another = {
+            "id": "another item",
+            "questionType": "question",
+            "fields": [{
+                "variable_name": "items.there_is_another",
+                "datatype": "yesnoradio",
+            }],
+        }
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "variables": {
+                "items.there_is_another": {"$sequence": [True, True, False]},
+            },
+        }
+        result = run_scenario(
+            FakeClient([another, another, another, terminal]),
+            scenario,
+            limits(max_steps=5),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertIsNone(result["failure"])
+
     def test_request_timeout_is_a_hang_failure(self):
         result = run_scenario(
             FakeClient([requests.Timeout("server stopped responding")]),
@@ -246,6 +285,32 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertEqual(
             result["terminal_evidence_mismatches"]["include_financial_statement"],
             {"expected": True, "observed": "<missing>"},
+        )
+
+    def test_terminal_cardinality_mismatch_fails(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_cardinalities": {
+                "children": {"variable": "children", "expected": 2},
+            },
+        }
+        client = FakeClient(
+            [terminal],
+            terminal_variables={
+                "divorcejointpetition_downloads_ready": True,
+                "children": {"_class": "DAList", "elements": [{}]},
+            },
+        )
+        result = run_scenario(client, scenario, limits())
+        self.assertEqual(result["failure"], "cardinality_evidence_mismatch")
+        self.assertEqual(
+            result["cardinality_evidence_mismatches"]["children"]["observed"],
+            1,
         )
 
     def test_declared_event_probe_adds_its_screen_to_coverage(self):

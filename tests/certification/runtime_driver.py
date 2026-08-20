@@ -121,6 +121,16 @@ def is_download_waiting_screen(question: dict[str, Any]) -> bool:
     return qid == "waiting screen" or "al_download_waiting_screen" in events
 
 
+def serialized_collection_count(value: Any) -> int | None:
+    if isinstance(value, list):
+        return len(value)
+    if isinstance(value, dict):
+        elements = value.get("elements")
+        if isinstance(elements, (list, dict)):
+            return len(elements)
+    return None
+
+
 def resolve_generic(variable: str, sought: str) -> str:
     if not variable.startswith(("x.", "x[")) or not sought:
         return variable
@@ -495,13 +505,11 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
             question = client.question(interview, session, secret)
             qid = question_id(question)
             fingerprint = question_fingerprint(question)
-            state_visits[fingerprint] = state_visits.get(fingerprint, 0) + 1
-            consecutive = consecutive + 1 if fingerprint == previous_state else 1
-            previous_state = fingerprint
             step = {
                 "number": step_number,
                 "id": qid,
                 "type": question.get("questionType"),
+                "question_keys": sorted(question),
                 "fingerprint": fingerprint,
                 "variant_fingerprint": screen_variant_fingerprint(question),
                 "sought": question_variable(question),
@@ -533,12 +541,6 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 time.sleep(2)
                 continue
             download_wait_started = None
-            if consecutive > limits.max_same_screen:
-                result["failure"] = "consecutive_repeated_state"
-                break
-            if state_visits[fingerprint] > limits.max_same_state_visits:
-                result["failure"] = "revisited_state_loop"
-                break
             if is_terminal(question):
                 result["terminal_id"] = qid
                 expected_terminal_ids = set(scenario.get("expected_terminal_ids", []))
@@ -565,6 +567,24 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         for name in evidence_names
                         if name in terminal_variables
                     }
+                    result["cardinality_evidence"] = {}
+                    cardinality_mismatches = {}
+                    for name, probe in scenario.get("expected_cardinalities", {}).items():
+                        variable_name = probe["variable"]
+                        observed_count = serialized_collection_count(
+                            terminal_variables.get(variable_name)
+                        )
+                        result["cardinality_evidence"][name] = {
+                            "variable": variable_name,
+                            "expected": probe["expected"],
+                            "observed": observed_count,
+                        }
+                        if observed_count != probe["expected"]:
+                            cardinality_mismatches[name] = result["cardinality_evidence"][name]
+                    if cardinality_mismatches:
+                        result["failure"] = "cardinality_evidence_mismatch"
+                        result["cardinality_evidence_mismatches"] = cardinality_mismatches
+                        break
                     expected_evidence = scenario.get("expected_terminal_evidence", {})
                     evidence_mismatches = {
                         name: {
@@ -612,6 +632,29 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
 
             answer = build_answer(question, variables, sequence_positions)
             step["answer"] = answer
+            # A repeated list-control screen is legitimate when a declared
+            # sequence is advancing. Include the answer and sequence cursor in
+            # the state identity so finite modeled traversal is not mistaken
+            # for a hang; an unchanged state still fails quickly, and an
+            # unexpected extra repetition exhausts the declared sequence.
+            state_payload = {
+                "question": fingerprint,
+                "answer": answer,
+                "sequence_positions": sequence_positions,
+            }
+            state_fingerprint = hashlib.sha256(
+                canonical(state_payload).encode()
+            ).hexdigest()[:16]
+            step["state_fingerprint"] = state_fingerprint
+            state_visits[state_fingerprint] = state_visits.get(state_fingerprint, 0) + 1
+            consecutive = consecutive + 1 if state_fingerprint == previous_state else 1
+            previous_state = state_fingerprint
+            if consecutive > limits.max_same_screen:
+                result["failure"] = "consecutive_repeated_state"
+                break
+            if state_visits[state_fingerprint] > limits.max_same_state_visits:
+                result["failure"] = "revisited_state_loop"
+                break
             response = client.answer(
                 interview,
                 session,

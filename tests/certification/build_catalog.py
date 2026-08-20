@@ -123,6 +123,12 @@ def build_catalog(workspace: Path, baseline: dict[str, Any]) -> dict[str, Any]:
     entry_package, entry_relative = parse_interview_name(baseline["entrypoint"])
     if entry_package is None:
         raise ValueError("The entrypoint must use a docassemble package name")
+    feature_packages = set(baseline.get("coverage_scope", {}).get("feature_packages", []))
+    framework_packages = set(baseline.get("coverage_scope", {}).get("framework_packages", []))
+    if feature_packages | framework_packages != set(roots):
+        raise ValueError("coverage_scope must classify every pinned package exactly once")
+    if feature_packages & framework_packages:
+        raise ValueError("coverage_scope package classifications must not overlap")
 
     pending: list[tuple[str, Path]] = [(entry_package, roots[entry_package] / entry_relative)]
     visited: set[Path] = set()
@@ -169,6 +175,9 @@ def build_catalog(workspace: Path, baseline: dict[str, Any]) -> dict[str, Any]:
                     "sets": document.get("sets"),
                     "continue_button_field": document.get("continue button field"),
                     "package": current_package,
+                    "coverage_scope": (
+                        "combined_feature" if current_package in feature_packages else "framework_support"
+                    ),
                     "path": file_record["path"],
                     "document_index": document["_document_index"],
                     "variables": direct_question_variables(document)
@@ -205,6 +214,7 @@ def build_catalog(workspace: Path, baseline: dict[str, Any]) -> dict[str, Any]:
     return {
         "entrypoint": baseline["entrypoint"],
         "source_sha": baseline["source"]["sha"],
+        "coverage_scope": baseline["coverage_scope"],
         "files": sorted(files, key=lambda item: item["path"]),
         "blocks": sorted(blocks, key=lambda item: (item["path"], item["document_index"])),
         "screens": sorted(screens, key=lambda item: (item["path"], item["document_index"])),

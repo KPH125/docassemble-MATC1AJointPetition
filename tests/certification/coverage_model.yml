@@ -17,8 +17,9 @@ dimensions:
   massachusetts_residency: [false, true]
   couple_ever_lived_in_massachusetts: [false, true]
   breakdown_in_massachusetts: [false, true]
-  divorce_affirm: [false, true]
-  joint_petition_affirm: [false, true]
+  divorce_type_affirmations.want_divorce: [false, true]
+  divorce_type_affirmations.file_jointly: [false, true]
+  divorce_type_affirmations.will_notarize: [false, true]
   separation_agreement_reached: [false, true]
   parties_will_negotiate: [false, true]
   separation_agreement_format: [wait, upload, interview]
@@ -340,6 +341,14 @@ cardinality_classes:
   child_previous_addresses: [0, 1, 2, 3]
   proceeding_other_parties: [0, 1, 3, 4]
   financial_lists: [0, 1, 2]
+
+cardinality_probes:
+  users:
+    variable: users
+    fixed_count: 2
+  children:
+    variable: children
+    count_variable: children_of_marriage_number
 
 representatives:
   text: Test

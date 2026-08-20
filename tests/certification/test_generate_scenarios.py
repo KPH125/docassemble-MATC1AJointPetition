@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-from generate_scenarios import expected_terminal_evidence, generate
+from generate_scenarios import expected_cardinalities, expected_terminal_evidence, generate
 
 
 HERE = Path(__file__).resolve().parent
@@ -47,24 +47,34 @@ class ScenarioGenerationTests(unittest.TestCase):
         self.assertTrue(evidence["include_findings_and_determinations"])
         self.assertFalse(evidence["needs_late_marriage_certificate_motion"])
 
-    def test_every_dimension_value_appears_in_defaults_or_an_override(self):
-        observed = {key: {self._freeze(value)} for key, value in self.model["default_variables"].items()}
-        for path in self.model["modeled_paths"]:
-            for key, value in path.get("overrides", {}).items():
-                observed.setdefault(key, set()).add(self._freeze(value))
+    def test_cardinality_evidence_is_derived_from_path_inputs(self):
+        evidence = expected_cardinalities(
+            self.model,
+            {"children_of_marriage_number": 5},
+        )
+        self.assertEqual(evidence["users"]["expected"], 2)
+        self.assertEqual(evidence["children"]["expected"], 5)
 
-        # Derived checkbox booleans are covered by the explicit checkbox paths.
-        derived = {"divorce_affirm", "joint_petition_affirm"}
+    def test_every_dimension_value_appears_in_defaults_or_an_override(self):
+        observed = {}
+        self._record_values(observed, self.model["default_variables"])
+        for path in self.model["modeled_paths"]:
+            self._record_values(observed, path.get("overrides", {}))
+
         for variable, values in self.model["dimensions"].items():
-            if variable in derived:
-                continue
-            if variable == "notarize_affirm":
-                continue
             expected = {self._freeze(value) for value in values}
             self.assertTrue(
                 expected.issubset(observed.get(variable, set())),
                 f"missing modeled values for {variable}: {expected - observed.get(variable, set())}",
             )
+
+    @classmethod
+    def _record_values(cls, observed, values, prefix=""):
+        for key, value in values.items():
+            variable = f"{prefix}.{key}" if prefix else key
+            observed.setdefault(variable, set()).add(cls._freeze(value))
+            if isinstance(value, dict) and "$file" not in value and "$sequence" not in value:
+                cls._record_values(observed, value, variable)
 
     @staticmethod
     def _freeze(value):

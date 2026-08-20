@@ -48,6 +48,20 @@ def expected_terminal_evidence(variables: dict) -> dict[str, bool]:
     }
 
 
+def expected_cardinalities(model: dict, variables: dict) -> dict:
+    result = {}
+    for name, probe in model.get("cardinality_probes", {}).items():
+        if "fixed_count" in probe:
+            count = probe["fixed_count"]
+        else:
+            count = variables[probe["count_variable"]]
+        result[name] = {
+            "variable": probe["variable"],
+            "expected": int(count),
+        }
+    return result
+
+
 def generate(model: dict, output: Path) -> list[Path]:
     output.mkdir(parents=True, exist_ok=True)
     for old in output.glob("*.json"):
@@ -67,6 +81,9 @@ def generate(model: dict, output: Path) -> list[Path]:
             ),
             "expected_terminal_evidence": path.get(
                 "expected_terminal_evidence", expected_terminal_evidence(variables)
+            ),
+            "expected_cardinalities": path.get(
+                "expected_cardinalities", expected_cardinalities(model, variables)
             ),
             "probe_events": path.get(
                 "probe_events", model.get("default_probe_events", [])
