@@ -48,13 +48,22 @@ def expected_terminal_evidence(variables: dict) -> dict[str, bool]:
     }
 
 
-def expected_cardinalities(model: dict, variables: dict) -> dict:
+def expected_cardinalities(
+    model: dict,
+    variables: dict,
+    path_cardinalities: dict | None = None,
+) -> dict:
     result = {}
+    path_cardinalities = path_cardinalities or {}
     for name, probe in model.get("cardinality_probes", {}).items():
-        if "fixed_count" in probe:
+        if name in path_cardinalities:
+            count = path_cardinalities[name]
+        elif "fixed_count" in probe:
             count = probe["fixed_count"]
-        else:
+        elif "count_variable" in probe:
             count = variables[probe["count_variable"]]
+        else:
+            count = probe["default_count"]
         result[name] = {
             "variable": probe["variable"],
             "expected": int(count),
@@ -83,7 +92,8 @@ def generate(model: dict, output: Path) -> list[Path]:
                 "expected_terminal_evidence", expected_terminal_evidence(variables)
             ),
             "expected_cardinalities": path.get(
-                "expected_cardinalities", expected_cardinalities(model, variables)
+                "expected_cardinalities",
+                expected_cardinalities(model, variables, path.get("cardinalities")),
             ),
             "probe_events": path.get(
                 "probe_events", model.get("default_probe_events", [])

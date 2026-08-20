@@ -36,6 +36,7 @@ dimensions:
   uploaded_agreement_addresses_child_support: [false, true]
   uploaded_agreement_child_support_deviation: [false, true]
   child_support_deviation: [false, true]
+  custody_case_participation: [no cases, know of, participated]
 
 default_variables:
   has_existing_1b_action: false
@@ -86,6 +87,7 @@ default_variables:
   marital_home.state: MA
   marital_home.zip: '02108'
   ask_if_qualifies_for_fee_waiver: false
+  custody_case_participation: no cases
 
 # These are the finite path archetypes. Each entry is a complete modeled path:
 # the generator overlays it on default_variables and the runtime ledger proves
@@ -227,6 +229,9 @@ modeled_paths:
         $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
       uploaded_agreement_addresses_child_support: true
       uploaded_agreement_child_support_deviation: false
+      custody_case_participation: participated
+    cardinalities:
+      other_care_custody_proceedings: 1
 
   - name: four children uploaded worksheet uploaded agreement deviation
     family: children
@@ -242,6 +247,11 @@ modeled_paths:
         $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
       uploaded_agreement_addresses_child_support: true
       uploaded_agreement_child_support_deviation: true
+      custody_case_participation: participated
+      other_care_custody_proceedings.there_is_another:
+        $sequence: [true, false]
+    cardinalities:
+      other_care_custody_proceedings: 2
 
   - name: five children built worksheet built agreement
     family: children
@@ -251,6 +261,9 @@ modeled_paths:
       csg_worksheet_path: interview
       separation_agreement_format: interview
       child_support_deviation: false
+      custody_case_participation: know of
+    cardinalities:
+      other_care_custody_proceedings: 1
 
   - name: nine children built worksheet built agreement deviation
     family: children
@@ -349,6 +362,9 @@ cardinality_probes:
   children:
     variable: children
     count_variable: children_of_marriage_number
+  other_care_custody_proceedings:
+    variable: other_care_custody_proceedings
+    default_count: 0
 
 representatives:
   text: Test

@@ -51,9 +51,11 @@ class ScenarioGenerationTests(unittest.TestCase):
         evidence = expected_cardinalities(
             self.model,
             {"children_of_marriage_number": 5},
+            {"other_care_custody_proceedings": 2},
         )
         self.assertEqual(evidence["users"]["expected"], 2)
         self.assertEqual(evidence["children"]["expected"], 5)
+        self.assertEqual(evidence["other_care_custody_proceedings"]["expected"], 2)
 
     def test_every_dimension_value_appears_in_defaults_or_an_override(self):
         observed = {}
