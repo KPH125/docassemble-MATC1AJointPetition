@@ -36,6 +36,7 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         normalization = normalization_blocks[0]
         for document_name in (
             "motion_to_amend_attachment",
+            "r408_attachment",
             "users[0].financial_statement_short_attachment",
             "users[1].financial_statement_long_attachment",
             "a_divorce_agreement_attachment",

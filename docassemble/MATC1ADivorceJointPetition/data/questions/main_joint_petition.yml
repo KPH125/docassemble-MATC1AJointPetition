@@ -182,6 +182,7 @@ code: |
 code: |
   for conditional_document in (
       motion_to_amend_attachment,
+      r408_attachment,
       affidavitofindigency_attachment,
       child_care_or_custody_disclosure_affidavit_next_steps,
       affidavit_of_care_or_custody_attachment,
