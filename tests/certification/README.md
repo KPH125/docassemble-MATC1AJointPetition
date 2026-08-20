@@ -14,15 +14,17 @@ of example runs.
   screens and branch expressions.
 - `generate_scenarios.py` materializes every declared path archetype.
 - `runtime_driver.py` drives fresh API sessions and writes every transition,
-  answer, terminal state, error, and timeout to a ledger.
+  answer, terminal state, generated bundle member, error, and timeout to a
+  ledger. Screens are keyed by package/file plus a fingerprint of the exact
+  YAML block, so reused IDs cannot satisfy each other.
 - `verify_runtime_manifest.py` rejects image or external-package drift before
   a runtime result can count.
-- `screen_classification.yml` is the only place a local screen may be excluded,
-  and every exclusion requires a source-backed reason.
+- `screen_classification.yml` is the only place an exact local screen block may
+  be excluded, and every exclusion requires a source-backed reason.
 - `audit_coverage.py` compares runtime evidence with the static denominator and
-  fails if any screen or distinguishable duplicate-ID variant is missing, an
-  exclusion is stale or unsupported, a modeled path is absent, a path fails,
-  or a path reaches the wrong terminal outcome.
+  fails if any exact source screen is missing, an exclusion is stale or
+  unsupported, a modeled path is absent, a path fails, a generated packet has
+  a missing or extra document, or a path reaches the wrong terminal outcome.
 
 Generated catalogs, scenarios, ledgers, logs, and runtime manifests are CI
 artifacts. They are intentionally not committed as hand-edited evidence.
