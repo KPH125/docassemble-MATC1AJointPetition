@@ -802,6 +802,12 @@ class Client:
             payload["event_list"] = canonical(event_list)
         if question_name:
             payload["question_name"] = question_name
+        # Save the submitted variables first, then fetch the resulting screen.
+        # Besides matching the API's explicit partial-update mode, this keeps
+        # the committed session available when next-screen assembly fails and
+        # lets GET /question report the underlying assembly exception instead
+        # of the opaque set-and-assemble wrapper error.
+        payload["question"] = 0
         with ExitStack() as stack:
             files = {
                 name: stack.enter_context(open((HERE.parents[1] / relative).resolve(), "rb"))
@@ -814,7 +820,7 @@ class Client:
                 timeout=self.timeout,
             )
         response.raise_for_status()
-        return response.json()
+        return self.question(interview, session, secret)
 
     def action(
         self,
@@ -949,7 +955,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         values=list(evidence_names)
                         + [
                             "combined_bundle_enabled_document_names",
-                            "al_user_bundle._downloadable_files",
+                            "combined_bundle_downloadable_files",
                         ],
                         counts=[
                             path
@@ -969,7 +975,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                     )
                     result["bundle_enabled_documents"] = sorted(enabled_documents)
                     result["bundle_download_evidence"] = serialized_download_evidence(
-                        terminal_variables.get("al_user_bundle._downloadable_files")
+                        terminal_variables.get("combined_bundle_downloadable_files")
                     )
                     expected_bundle = scenario.get("expected_bundle_documents", {})
                     expected_enabled = {
@@ -1208,6 +1214,11 @@ def main() -> int:
     parser.add_argument("--server", default=os.environ.get("DA_SERVER_URL", ""))
     parser.add_argument("--api-key", default=os.environ.get("DA_API_KEY", ""))
     parser.add_argument("--scenarios", type=Path, default=HERE / "scenarios")
+    parser.add_argument(
+        "--scenario-pattern",
+        default="",
+        help="run scenario names that fully match this regex (for focused CI diagnosis)",
+    )
     parser.add_argument("--model", type=Path, default=HERE / "coverage_model.yml")
     parser.add_argument("--ledger", type=Path, default=HERE / "runtime_ledger.json")
     args = parser.parse_args()
@@ -1220,6 +1231,19 @@ def main() -> int:
     if workers < 1:
         parser.error("hang_policy.runtime_workers must be at least 1")
     scenarios = [json.loads(path.read_text()) for path in sorted(args.scenarios.glob("*.json"))]
+    if args.scenario_pattern:
+        try:
+            scenario_pattern = re.compile(args.scenario_pattern)
+        except re.error as exc:
+            parser.error(f"invalid --scenario-pattern: {exc}")
+        scenarios = [
+            scenario for scenario in scenarios
+            if scenario_pattern.fullmatch(str(scenario.get("name", "")))
+        ]
+        if not scenarios:
+            parser.error(
+                f"no generated scenario matches {args.scenario_pattern!r}"
+            )
     indexed_results: dict[int, dict[str, Any]] = {}
 
     def run_indexed(index: int, scenario: dict[str, Any]) -> tuple[int, dict[str, Any]]:

@@ -49,10 +49,21 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             order.index("combined_bundle_enabled_document_names"),
             order.index("generate_downloads_with_docx_task"),
         )
+        self.assertLess(
+            order.index("combined_bundle_downloadable_files"),
+            order.index("divorcejointpetition_download", order.index("combined_bundle_downloadable_files")),
+        )
         bundle_names = identified_code(
             "main_joint_petition.yml", "combined bundle enabled document names"
         )
         self.assertIn("al_user_bundle.enabled_documents(refresh=True)", bundle_names)
+        downloadable_files = identified_code(
+            "main_joint_petition.yml", "combined bundle downloadable files"
+        )
+        self.assertIn(
+            "combined_bundle_downloadable_files = al_user_bundle._downloadable_files",
+            downloadable_files,
+        )
 
     def test_combined_parent_clears_standalone_document_enablement(self):
         order = identified_code("main_joint_petition.yml", "joint petition interview order")

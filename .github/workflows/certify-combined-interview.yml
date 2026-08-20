@@ -2,6 +2,11 @@ name: Certify combined interview paths
 
 on:
   workflow_dispatch:
+    inputs:
+      scenario_pattern:
+        description: Full-match regex for modeled scenario names; leave blank for all paths
+        required: false
+        default: ''
   push:
     branches:
       - codex/exhaustive-path-certification
@@ -96,7 +101,7 @@ jobs:
             --env DA_ADMIN_PASSWORD="$da_password" \
             --env DA_ADMIN_API_KEY="$da_key" \
             --cap-add SYS_PTRACE \
-            --memory 4gb \
+            --memory 6gb \
             --stop-timeout 60 \
             -d -p 80:80 \
             "$DA_IMAGE"
@@ -161,12 +166,14 @@ jobs:
         working-directory: docassemble-MATC1ADivorceJointPetition
         env:
           DA_SERVER_URL: http://localhost
+          CERT_SCENARIO_PATTERN: ${{ inputs.scenario_pattern || '' }}
         run: |
           python tests/certification/generate_scenarios.py \
             --output tests/certification/artifacts/generated-scenarios
           python tests/certification/runtime_driver.py \
             --scenarios tests/certification/artifacts/generated-scenarios \
-            --ledger tests/certification/artifacts/runtime-ledger.json
+            --ledger tests/certification/artifacts/runtime-ledger.json \
+            ${CERT_SCENARIO_PATTERN:+--scenario-pattern "$CERT_SCENARIO_PATTERN"}
 
       - name: Audit complete screen and path coverage
         if: always()

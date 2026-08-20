@@ -64,3 +64,7 @@ authenticated, read-only `combined certification snapshot` action rather than
 ALDocument objects and generate previews merely by observing them. Exact packet
 membership is proved from `enabled_documents()` immediately before generation,
 then corroborated against the background task's `_downloadable_files` results.
+
+Manual workflow dispatches may set `scenario_pattern` to a full-match regular
+expression for focused diagnosis. A blank pattern remains the only exhaustive
+certification run; focused ledgers intentionally fail the all-path audit.

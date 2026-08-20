@@ -1,9 +1,10 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import requests
 
 from runtime_driver import (
+    Client,
     Limits,
     build_answer,
     field_within_cardinalities,
@@ -93,6 +94,28 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_client_saves_answer_before_fetching_next_question(self):
+        client = Client("http://server", "key", 10)
+        client.http = Mock()
+        client.http.post.return_value = Mock()
+        client.http.get.return_value = Mock(
+            json=Mock(return_value={"id": "next"})
+        )
+
+        result = client.answer(
+            "docassemble.example:data/questions/main.yml",
+            "session",
+            "secret",
+            {"answer": True},
+            ["answer"],
+        )
+
+        self.assertEqual(result, {"id": "next"})
+        post_data = client.http.post.call_args.kwargs["data"]
+        self.assertEqual(post_data["question"], 0)
+        self.assertEqual(post_data["variables"], '{"answer":true}')
+        client.http.get.assert_called_once()
+
     def test_bundle_membership_mismatch_fails_terminal(self):
         terminal = {
             "id": "download divorce joint petition",
@@ -123,7 +146,7 @@ class RuntimeDriverTests(unittest.TestCase):
             terminal_variables={
                 "divorcejointpetition_downloads_ready": True,
                 "combined_bundle_enabled_document_names": ["required_attachment"],
-                "al_user_bundle._downloadable_files": [
+                "combined_bundle_downloadable_files": [
                     [{"title": "Required", "pdf": file_value}],
                     None,
                     None,

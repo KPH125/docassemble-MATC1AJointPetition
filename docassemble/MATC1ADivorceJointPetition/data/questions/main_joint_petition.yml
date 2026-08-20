@@ -746,6 +746,7 @@ code: |
     else:
       al_download_waiting_screen
 
+  combined_bundle_downloadable_files
   divorcejointpetition_download
 ---
 id: combined bundle enabled document names
@@ -754,3 +755,10 @@ code: |
     document.instanceName
     for document in al_user_bundle.enabled_documents(refresh=True)
   ]
+---
+id: combined bundle downloadable files
+code: |
+  # Expose the completed background result through a public variable name.
+  # Docassemble intentionally rejects private attributes such as
+  # ``al_user_bundle._downloadable_files`` when passed to value().
+  combined_bundle_downloadable_files = al_user_bundle._downloadable_files
