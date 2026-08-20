@@ -50,20 +50,22 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             order.index("generate_downloads_with_docx_task"),
         )
         self.assertLess(
-            order.index("combined_bundle_downloadable_files"),
-            order.index("divorcejointpetition_download", order.index("combined_bundle_downloadable_files")),
+            order.index("combined_bundle_download_evidence"),
+            order.index("divorcejointpetition_download", order.index("combined_bundle_download_evidence")),
         )
         bundle_names = identified_code(
             "main_joint_petition.yml", "combined bundle enabled document names"
         )
         self.assertIn("al_user_bundle.enabled_documents(refresh=True)", bundle_names)
-        downloadable_files = identified_code(
-            "main_joint_petition.yml", "combined bundle downloadable files"
+        download_evidence = identified_code(
+            "main_joint_petition.yml", "combined bundle download evidence"
         )
         self.assertIn(
-            "combined_bundle_downloadable_files = al_user_bundle._downloadable_files",
-            downloadable_files,
+            "certification_document_results, certification_zip, certification_pdf = al_user_bundle._downloadable_files",
+            download_evidence,
         )
+        self.assertIn("combined_bundle_download_evidence", download_evidence)
+        self.assertNotIn("combined_bundle_downloadable_files", order)
 
     def test_combined_parent_clears_standalone_document_enablement(self):
         order = identified_code("main_joint_petition.yml", "joint petition interview order")

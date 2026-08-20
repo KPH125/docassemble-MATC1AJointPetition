@@ -15,6 +15,12 @@
       "pull_request": 159,
       "sha": "5519eb22068534a82d93f49a2650617077618054",
       "reason": "Known fix for the separation-agreement merge loop"
+    },
+    {
+      "repository": "SuffolkLITLab/docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
+      "pull_request": 3,
+      "sha": "2f7e7fdb95cb330d59fb61eea00575f3849080f0",
+      "reason": "Fix API rendering of the multi-child custody checkbox question"
     }
   ],
   "coverage_scope": {
@@ -60,7 +66,7 @@
     "docassemble.MATCChildCareOrCustodyDisclosureAffidavit": {
       "repository": "SuffolkLITLab/docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
       "directory": "docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
-      "sha": "a08c02e0ead0a108cb062ce4f7db34e00bdbb0fe"
+      "sha": "2f7e7fdb95cb330d59fb61eea00575f3849080f0"
     },
     "docassemble.MATCCSGWorksheet": {
       "repository": "SuffolkLITLab/docassemble-MATCCSGWorksheet",

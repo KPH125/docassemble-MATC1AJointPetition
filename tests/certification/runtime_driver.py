@@ -169,64 +169,6 @@ def serialized_collection_count(value: Any) -> int | None:
     return None
 
 
-def serialized_download_evidence(value: Any) -> dict[str, Any]:
-    """Compact the exact ``_downloadable_files`` produced by the background task."""
-
-    def file_records(node: Any) -> list[dict[str, Any]]:
-        records: list[dict[str, Any]] = []
-        if isinstance(node, dict):
-            if str(node.get("_class", "")).endswith("DAFile"):
-                records.append(
-                    {
-                        "filename": node.get("filename"),
-                        "extension": node.get("extension"),
-                        "ok": node.get("ok"),
-                        "pages": (node.get("file_info") or {}).get("pages")
-                        if isinstance(node.get("file_info"), dict)
-                        else None,
-                    }
-                )
-            for nested in node.values():
-                records.extend(file_records(nested))
-        elif isinstance(node, list):
-            for nested in node:
-                records.extend(file_records(nested))
-        return records
-
-    document_results = value[0] if isinstance(value, list) and value else []
-    documents = []
-    for document in document_results if isinstance(document_results, list) else []:
-        if not isinstance(document, dict):
-            continue
-        files = {canonical(record): record for record in file_records(document)}
-        documents.append(
-            {
-                "title": document.get("title"),
-                "files": sorted(
-                    files.values(),
-                    key=lambda record: (
-                        str(record.get("filename")),
-                        str(record.get("extension")),
-                    ),
-                ),
-            }
-        )
-    bundle_files = {
-        canonical(record): record
-        for record in file_records(value[1:] if isinstance(value, list) else [])
-    }
-    return {
-        "documents": documents,
-        "bundle_files": sorted(
-            bundle_files.values(),
-            key=lambda record: (
-                str(record.get("filename")),
-                str(record.get("extension")),
-            ),
-        ),
-    }
-
-
 def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[int] | None:
     """Count a serialized collection at a dotted path, with ``[*]`` fan-out."""
     values: list[Any] = [root]
@@ -955,7 +897,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         values=list(evidence_names)
                         + [
                             "combined_bundle_enabled_document_names",
-                            "combined_bundle_downloadable_files",
+                            "combined_bundle_download_evidence",
                         ],
                         counts=[
                             path
@@ -974,9 +916,19 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         )
                     )
                     result["bundle_enabled_documents"] = sorted(enabled_documents)
-                    result["bundle_download_evidence"] = serialized_download_evidence(
-                        terminal_variables.get("combined_bundle_downloadable_files")
+                    download_evidence = terminal_variables.get(
+                        "combined_bundle_download_evidence", {}
                     )
+                    if not isinstance(download_evidence, dict):
+                        download_evidence = {}
+                    result["bundle_download_evidence"] = {
+                        "documents": download_evidence.get("documents", [])
+                        if isinstance(download_evidence.get("documents", []), list)
+                        else [],
+                        "bundle_files": download_evidence.get("bundle_files", [])
+                        if isinstance(download_evidence.get("bundle_files", []), list)
+                        else [],
+                    }
                     expected_bundle = scenario.get("expected_bundle_documents", {})
                     expected_enabled = {
                         name for name, expected in expected_bundle.items() if expected
@@ -998,8 +950,8 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                     failed_downloads = [
                         document
                         for document in download_documents
-                        if not document["files"]
-                        or any(file.get("ok") is False for file in document["files"])
+                        if not document.get("files")
+                        or any(file.get("ok") is not True for file in document["files"])
                     ]
                     if len(download_documents) != len(expected_enabled):
                         bundle_mismatches["<download-count>"] = {

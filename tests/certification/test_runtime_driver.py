@@ -11,7 +11,6 @@ from runtime_driver import (
     question_source_file,
     run_scenario,
     serialized_collection_count,
-    serialized_download_evidence,
     serialized_object_choices,
     serialized_path_cardinality,
     serialized_path_value,
@@ -135,22 +134,27 @@ class RuntimeDriverTests(unittest.TestCase):
             "questionType": "event",
             "fields": [],
         }
-        file_value = {
-            "_class": "docassemble.base.util.DAFile",
-            "filename": "required.pdf",
-            "extension": "pdf",
-            "ok": True,
-        }
         client = FakeClient(
             [terminal],
             terminal_variables={
                 "divorcejointpetition_downloads_ready": True,
                 "combined_bundle_enabled_document_names": ["required_attachment"],
-                "combined_bundle_downloadable_files": [
-                    [{"title": "Required", "pdf": file_value}],
-                    None,
-                    None,
-                ],
+                "combined_bundle_download_evidence": {
+                    "documents": [
+                        {
+                            "title": "Required",
+                            "files": [
+                                {
+                                    "format": "pdf",
+                                    "filename": "required.pdf",
+                                    "extension": "pdf",
+                                    "ok": True,
+                                }
+                            ],
+                        }
+                    ],
+                    "bundle_files": [],
+                },
             },
         )
         scenario = {
@@ -161,20 +165,43 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertEqual(result["status"], "pass")
         self.assertIsNone(result["failure"])
 
-    def test_download_evidence_reads_only_background_results(self):
-        file_value = {
-            "_class": "docassemble.base.util.DAFile",
-            "filename": "petition.pdf",
-            "extension": "pdf",
-            "ok": True,
-            "file_info": {"pages": 2},
+    def test_download_evidence_requires_explicit_file_success(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
         }
-        evidence = serialized_download_evidence(
-            [[{"title": "Petition", "pdf": file_value}], None, file_value]
+        client = FakeClient(
+            [terminal],
+            terminal_variables={
+                "divorcejointpetition_downloads_ready": True,
+                "combined_bundle_enabled_document_names": ["required_attachment"],
+                "combined_bundle_download_evidence": {
+                    "documents": [
+                        {
+                            "title": "Required",
+                            "files": [
+                                {
+                                    "format": "pdf",
+                                    "filename": "required.pdf",
+                                    "extension": "pdf",
+                                }
+                            ],
+                        }
+                    ],
+                    "bundle_files": [],
+                },
+            },
         )
-        self.assertEqual(evidence["documents"][0]["title"], "Petition")
-        self.assertEqual(evidence["documents"][0]["files"][0]["pages"], 2)
-        self.assertEqual(len(evidence["bundle_files"]), 1)
+        scenario = {
+            **SCENARIO,
+            "expected_bundle_documents": {"required_attachment": True},
+        }
+        result = run_scenario(client, scenario, limits())
+        self.assertEqual(result["failure"], "bundle_document_mismatch")
+        self.assertIn(
+            "<failed-downloads>", result["bundle_document_mismatches"]
+        )
 
     def test_question_source_file_uses_included_file_history(self):
         question = {

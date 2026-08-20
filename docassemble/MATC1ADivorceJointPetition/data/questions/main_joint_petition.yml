@@ -746,7 +746,7 @@ code: |
     else:
       al_download_waiting_screen
 
-  combined_bundle_downloadable_files
+  combined_bundle_download_evidence
   divorcejointpetition_download
 ---
 id: combined bundle enabled document names
@@ -756,9 +756,33 @@ code: |
     for document in al_user_bundle.enabled_documents(refresh=True)
   ]
 ---
-id: combined bundle downloadable files
+id: combined bundle download evidence
 code: |
-  # Expose the completed background result through a public variable name.
-  # Docassemble intentionally rejects private attributes such as
-  # ``al_user_bundle._downloadable_files`` when passed to value().
-  combined_bundle_downloadable_files = al_user_bundle._downloadable_files
+  # Convert the completed background result into primitives before the
+  # certification API reads it.  DAFile objects cannot safely be serialized
+  # through value() and attempting to do so can fail the live interview.
+  combined_bundle_download_evidence = {"documents": [], "bundle_files": []}
+  certification_document_results, certification_zip, certification_pdf = al_user_bundle._downloadable_files
+  for certification_document in certification_document_results:
+    certification_document_evidence = {
+      "title": str(certification_document.get("title", "")),
+      "files": [],
+    }
+    for certification_format in ("pdf", "docx", "original"):
+      if certification_format in certification_document:
+        certification_file = certification_document[certification_format]
+        certification_document_evidence["files"].append({
+          "format": certification_format,
+          "filename": certification_file.filename,
+          "extension": certification_file.extension,
+          "ok": certification_file.ok,
+        })
+    combined_bundle_download_evidence["documents"].append(certification_document_evidence)
+  for certification_format, certification_file in (("zip", certification_zip), ("pdf", certification_pdf)):
+    if certification_file is not None:
+      combined_bundle_download_evidence["bundle_files"].append({
+        "format": certification_format,
+        "filename": certification_file.filename,
+        "extension": certification_file.extension,
+        "ok": certification_file.ok,
+      })
