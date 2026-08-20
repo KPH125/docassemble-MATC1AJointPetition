@@ -17,6 +17,12 @@ en
 .flake8
 *.swp
 .DS_Store
+.github-actions-artifacts/
+tests/certification/artifacts/
+tests/certification/runtime_ledger.json
+tests/certification/static_catalog.json
+tests/certification/generated_scenarios/
+tests/certification/coverage_audit.json
 .envrc
 .env
 .venv

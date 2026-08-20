@@ -1,0 +1,3 @@
+# A screen may be listed here only with source-backed proof that the combined
+# parent cannot call it. Empty reasons fail the coverage audit.
+proven_unreachable: {}

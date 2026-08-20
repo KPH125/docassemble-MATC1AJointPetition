@@ -1,0 +1,63 @@
+{
+  "entrypoint": "docassemble.MATC1ADivorceJointPetition:data/questions/main_joint_petition.yml",
+  "source": {
+    "repository": "SuffolkLITLab/docassemble-MATC1ADivorceJointPetition",
+    "ref": "main",
+    "sha": "d7063d1ebd3ceb59808ac6934c40849ee0189a7a"
+  },
+  "runtime": {
+    "image": "jhpyle/docassemble@sha256:c0b0a707a6cd2149d5777ee83af1ea1de544210e597371eac93e67a1503c395c"
+  },
+  "candidate_overlays": [
+    {
+      "repository": "SuffolkLITLab/docassemble-MATC1ADivorceJointPetition",
+      "pull_request": 159,
+      "sha": "5519eb22068534a82d93f49a2650617077618054",
+      "reason": "Known fix for the separation-agreement merge loop"
+    }
+  ],
+  "packages": {
+    "docassemble.MATC1ADivorceJointPetition": {
+      "repository": "SuffolkLITLab/docassemble-MATC1ADivorceJointPetition",
+      "directory": "docassemble-MATC1ADivorceJointPetition",
+      "sha": "d7063d1ebd3ceb59808ac6934c40849ee0189a7a"
+    },
+    "docassemble.MATCMotionToAmend": {
+      "repository": "SuffolkLITLab/docassemble-MATCMotionToAmend",
+      "directory": "docassemble-MATCMotionToAmend",
+      "sha": "f92797e3c417f142faec40fbce35d25fb8bf50d6"
+    },
+    "docassemble.MATCFinancialStatement": {
+      "repository": "SuffolkLITLab/docassemble-MATCFinancialStatement",
+      "directory": "docassemble-MATCFinancialStatement",
+      "sha": "73d1cab3f2425bc78ed15a6d4b6208236e16faf4"
+    },
+    "docassemble.MATCSeparationAgreement": {
+      "repository": "SuffolkLITLab/docassemble-MATCSeparationAgreement",
+      "directory": "docassemble-MATCSeparationAgreement",
+      "sha": "dce8a19a3249a7be750ddc326913bc2bb93c6dfe"
+    },
+    "docassemble.MATCChildCareOrCustodyDisclosureAffidavit": {
+      "repository": "SuffolkLITLab/docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
+      "directory": "docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
+      "sha": "a08c02e0ead0a108cb062ce4f7db34e00bdbb0fe"
+    },
+    "docassemble.MATCCSGWorksheet": {
+      "repository": "SuffolkLITLab/docassemble-MATCCSGWorksheet",
+      "directory": "docassemble-MATCCSGWorksheet",
+      "sha": "96589474face58e0bbb18a067f4710e8e50e3d5a"
+    },
+    "docassemble.matcfindingsanddeterminations": {
+      "repository": "SuffolkLITLab/docassemble-MATCFindingsAndDeterminations",
+      "directory": "docassemble-MATCFindingsAndDeterminations",
+      "sha": "9ce10b5f65b0fdd83919d151dee6d9a717723b26"
+    }
+  },
+  "external_packages": [
+    "docassemble.AssemblyLine",
+    "docassemble.ALMassachusetts",
+    "docassemble.ALToolbox",
+    "docassemble.MassAccess",
+    "docassemble.ALAffidavitOfIndigency"
+  ]
+}

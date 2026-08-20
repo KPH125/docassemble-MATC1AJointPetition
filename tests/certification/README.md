@@ -1,0 +1,51 @@
+# Combined interview certification
+
+This directory treats coverage as an auditable claim rather than a collection
+of example runs.
+
+## Proof artifacts
+
+- `baseline.json` pins the combined source, each local included package, and
+  known candidate overlays that have not yet been accepted.
+- `coverage_model.yml` declares the finite path model, input equivalence
+  classes, list cardinality boundaries, and hang thresholds.
+- `build_catalog.py` resolves the local include graph and catalogs declared
+  screens and branch expressions.
+- `generate_scenarios.py` materializes every declared path archetype.
+- `runtime_driver.py` drives fresh API sessions and writes every transition,
+  answer, terminal state, error, and timeout to a ledger.
+- `screen_classification.yml` is the only place a local screen may be excluded,
+  and every exclusion requires a source-backed reason.
+- `audit_coverage.py` compares runtime evidence with the static denominator and
+  fails if any screen is missing, an exclusion is stale or unsupported, or a
+  path failed.
+
+Generated catalogs, scenarios, ledgers, logs, and runtime manifests are CI
+artifacts. They are intentionally not committed as hand-edited evidence.
+
+## Hang definition
+
+A path fails when any one of these occurs:
+
+1. an HTTP request exceeds the declared request timeout;
+2. the same runtime state appears too many times consecutively;
+3. a state is revisited beyond the declared limit;
+4. a scenario exceeds its wall-clock budget;
+5. the interview exceeds its maximum step count; or
+6. Docassemble reports an infinite loop or another error screen.
+
+List questions include the sought variable and index in their state
+fingerprint, so legitimate repeated list screens are not mistaken for hangs.
+
+## Local static checks
+
+From the repository root:
+
+```bash
+python3 tests/certification/build_catalog.py
+python3 tests/certification/generate_scenarios.py
+python3 -m unittest discover -s tests/certification -p 'test_*.py' -v
+```
+
+Runtime tests require a Docassemble server and API key. CI supplies both using
+an isolated Docker container.

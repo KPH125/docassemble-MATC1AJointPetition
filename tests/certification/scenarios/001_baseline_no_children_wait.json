@@ -1,0 +1,43 @@
+{
+  "name": "baseline no children, no financial statements, agreement later",
+  "interview": "docassemble.MATC1ADivorceJointPetition:data/questions/main_joint_petition.yml",
+  "expected_terminal_ids": ["download divorce joint petition"],
+  "variables": {
+    "has_existing_1b_action": false,
+    "financial_statement_scope": "neither",
+    "legal_marriage": true,
+    "marriage_certificate_upload": "",
+    "massachusetts_residency": true,
+    "divorce_type_affirmations": {
+      "want_divorce": true,
+      "file_jointly": true,
+      "will_notarize": true
+    },
+    "children_of_marriage": false,
+    "separation_agreement_reached": true,
+    "separation_agreement_documented": false,
+    "separation_agreement_format": "wait",
+    "international_marriage": false,
+    "previous_action": false,
+    "who_lives_at_marital_home": "both",
+    "users[0].has_attorney": false,
+    "users[1].has_attorney": false,
+    "users[0].name.first": "Alex",
+    "users[0].name.last": "Example",
+    "users[1].name.first": "Bailey",
+    "users[1].name.last": "Example",
+    "users[0].address.address": "1 Main Street",
+    "users[0].address.city": "Boston",
+    "users[0].address.state": "MA",
+    "users[0].address.zip": "02108",
+    "users[1].address.address": "1 Main Street",
+    "users[1].address.city": "Boston",
+    "users[1].address.state": "MA",
+    "users[1].address.zip": "02108",
+    "marital_home.address": "1 Main Street",
+    "marital_home.city": "Boston",
+    "marital_home.state": "MA",
+    "marital_home.zip": "02108",
+    "ask_if_qualifies_for_fee_waiver": false
+  }
+}
