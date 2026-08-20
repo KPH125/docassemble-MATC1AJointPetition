@@ -394,7 +394,7 @@ code: |
   nav.set_section("convert_1b_to_1a")
   has_existing_1b_action
   if has_existing_1b_action:
-    interview_order_motion_to_amend
+    combined_interview_order_motion_to_amend
 
   nav.set_section("packet_options")
   include_financial_statement
@@ -479,6 +479,78 @@ code: |
     ask_affidavit_questions
 
   joint_petition_interview_order = True
+---
+comment: |
+  The standalone motion interview swaps users.elements when the original 1B
+  plaintiff should be Party B. Moving ALIndividual objects between DAList
+  indices leaves their instance names pointing at the old indices and caused a
+  certified al_court_bundle assembly cycle. In the combined interview the
+  parent owns this integration order. Swap only the already-collected name
+  values, before collecting every remaining party attribute, so each object
+  keeps its canonical users[0]/users[1] identity.
+id: combined interview order motion to amend
+code: |
+  allowed_courts = ['Probate and Family Court']
+  user_role = "plaintiff"
+  user_ask_role = "plaintiff"
+
+  users[0].name.first
+  users[1].name.first
+  plaintiff_is_party_a
+  if not plaintiff_is_party_a:
+    users[0].name.first, users[1].name.first = users[1].name.first, users[0].name.first
+    users[0].name.middle, users[1].name.middle = users[1].name.middle, users[0].name.middle
+    users[0].name.last, users[1].name.last = users[1].name.last, users[0].name.last
+    users[0].name.suffix, users[1].name.suffix = users[1].name.suffix, users[0].name.suffix
+    plaintiff_index = 1
+  else:
+    plaintiff_index = 0
+  defendant_index = 1 - plaintiff_index
+
+  trial_court.division
+  docket_number
+  set_progress(30)
+  marriage_breakdown_date
+  breakdown_location
+  action_commenced_date
+  set_progress(50)
+
+  users[0].has_attorney
+  if users[0].has_attorney:
+    attorneys[0].name_fields()
+    attorneys[0].address_fields()
+    attorneys[0].phone_number
+    attorneys[0].bbo_number
+  else:
+    users[0].phone_number
+
+  set_progress(70)
+  users[1].has_attorney
+  if users[1].has_attorney:
+    attorneys[1].name_fields()
+    attorneys[1].address_fields()
+    attorneys[1].phone_number
+    attorneys[1].bbo_number
+  else:
+    users[1].phone_number
+
+  set_progress(90)
+  if plaintiff_index == 0:
+    if not users[0].has_attorney:
+      users[0].signature
+    if not users[1].has_attorney:
+      users[1].signature
+    else:
+      attorneys[1].signature
+  else:
+    if not users[1].has_attorney:
+      users[1].signature
+    if not users[0].has_attorney:
+      users[0].signature
+    else:
+      attorneys[0].signature
+
+  combined_interview_order_motion_to_amend = True
 ---
 code: |
   if separation_agreement_format == "interview":

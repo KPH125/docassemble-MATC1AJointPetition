@@ -87,6 +87,19 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         self.assertNotIn("list collect", question)
         self.assertIn("children[i].birthdate", str(question.get("fields", [])))
 
+    def test_combined_motion_order_preserves_user_object_identity(self):
+        joint_order = identified_code("main_joint_petition.yml", "joint petition interview order")
+        combined_order = identified_code(
+            "main_joint_petition.yml", "combined interview order motion to amend"
+        )
+        self.assertIn("combined_interview_order_motion_to_amend", joint_order)
+        self.assertNotIn("\n  interview_order_motion_to_amend\n", joint_order)
+        self.assertNotIn("users.elements[0]", combined_order)
+        self.assertIn(
+            "users[0].name.first, users[1].name.first = users[1].name.first, users[0].name.first",
+            combined_order,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
