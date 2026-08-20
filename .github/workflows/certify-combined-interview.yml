@@ -83,6 +83,7 @@ jobs:
           path: docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
 
       - name: Start disposable Docassemble server
+        timeout-minutes: 15
         run: |
           da_key=$(openssl rand -hex 16)
           da_password=$(openssl rand -base64 24)
