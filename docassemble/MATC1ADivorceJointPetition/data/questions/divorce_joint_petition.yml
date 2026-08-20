@@ -1467,8 +1467,8 @@ attachment:
       - "marriage_breakdown_date": ${ marriage_breakdown_date.format() }
       - "request_divorce_nofault": ${ request_divorce_nofault }
       - "request_separation_agreement_approval": ${ request_separation_agreement_approval }
-      - "request_merge_agreement": ${ request_merge_agreement }
-      - "request_survive_agreement": ${ request_survive_agreement }
+      - "request_merge_agreement": ${ petition_request_merge_agreement }
+      - "request_survive_agreement": ${ petition_request_survive_agreement }
       - "users1_request_name_change": ${ users1_request_name_change }
       - "users1_former_name_last": ${ users1_former_name_last }
       - "users2_request_name_change": ${ users2_request_name_change }

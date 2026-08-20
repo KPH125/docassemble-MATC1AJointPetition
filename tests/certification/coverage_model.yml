@@ -23,8 +23,12 @@ dimensions:
   parties_will_negotiate: [false, true]
   separation_agreement_format: [wait, upload, interview]
   csg_worksheet_path: [wait, upload, interview]
+  uploaded_worksheet_payor: [party_a, party_b]
   children_of_marriage: [false, true]
   previous_action: [false, true]
+  who_lives_at_marital_home: [both, party_a, party_b, neither]
+  request_merge_agreement: [false, true]
+  request_survive_agreement: [false, true]
   users[0].has_attorney: [false, true]
   users[1].has_attorney: [false, true]
   ask_if_qualifies_for_fee_waiver: [false, true]
@@ -47,18 +51,27 @@ default_variables:
   separation_agreement_reached: true
   separation_agreement_documented: false
   separation_agreement_format: wait
+  csg_worksheet_path: wait
+  uploaded_worksheet_payor: party_a
   uploaded_agreement_addresses_child_support: false
   uploaded_agreement_child_support_deviation: false
   child_support_deviation: false
   international_marriage: false
   previous_action: false
   who_lives_at_marital_home: both
+  request_merge_agreement: true
+  request_survive_agreement: true
   users[0].has_attorney: false
   users[1].has_attorney: false
   users[0].name.first: Alex
   users[0].name.last: Example
+  users[0].birthdate: '1985-01-15'
+  users[0].ssn: 123-45-6789
   users[1].name.first: Bailey
   users[1].name.last: Example
+  users[1].birthdate: '1987-01-15'
+  users[1].ssn: 987-65-4321
+  users[i].birthdate: '1985-01-15'
   users[0].address.address: 1 Main Street
   users[0].address.city: Boston
   users[0].address.state: MA
@@ -144,6 +157,7 @@ modeled_paths:
     overrides:
       has_existing_1b_action: true
       plaintiff_is_party_a: true
+      who_lives_at_marital_home: party_a
 
   - name: existing 1B party B plaintiff
     family: existing_case
@@ -166,6 +180,7 @@ modeled_paths:
     family: counsel
     overrides:
       users[1].has_attorney: true
+      who_lives_at_marital_home: party_b
 
   - name: no agreement and unwilling to negotiate
     family: agreement
@@ -185,6 +200,7 @@ modeled_paths:
     overrides:
       separation_agreement_documented: true
       separation_agreement_format: upload
+      request_merge_agreement: false
       separation_agreement_upload:
         $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
 
@@ -201,6 +217,7 @@ modeled_paths:
       children_of_marriage: true
       children_of_marriage_number: 2
       csg_worksheet_path: upload
+      uploaded_worksheet_payor: party_b
       child_support_guidelines_worksheet_upload:
         $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
       separation_agreement_documented: true
@@ -308,11 +325,13 @@ modeled_paths:
     family: relationship
     overrides:
       international_marriage: true
+      who_lives_at_marital_home: neither
 
   - name: previous divorce-related action
     family: relationship
     overrides:
       previous_action: true
+      request_survive_agreement: false
 
 cardinality_classes:
   users: [2]

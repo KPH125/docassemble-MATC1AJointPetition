@@ -74,6 +74,15 @@ class RuntimeDriverTests(unittest.TestCase):
         }
         self.assertEqual(build_answer(question, {}), {"intro_complete": True})
 
+    def test_ssn_fields_use_a_valid_representative(self):
+        question = {
+            "fields": [{"variable_name": "users[0].ssn", "datatype": "ssn"}],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"users[0].ssn": "123-45-6789"},
+        )
+
     def test_string_false_show_if_value_keeps_visible_field(self):
         question = {
             "fields": [
@@ -96,6 +105,21 @@ class RuntimeDriverTests(unittest.TestCase):
         }
         answer = build_answer(question, {"documented": False, "format": "wait"})
         self.assertEqual(answer, {"documented": False, "format": "wait"})
+
+    def test_expression_show_if_does_not_hide_server_visible_fields(self):
+        question = {
+            "fields": [
+                {
+                    "variable_name": "users1_gender",
+                    "datatype": "text",
+                    "inputtype": "radio",
+                    "choices": [{"label": "Male", "value": "male"}],
+                    "show_if_var": 'not showifdef("users1_gender")',
+                    "show_if_val": "True",
+                }
+            ],
+        }
+        self.assertEqual(build_answer(question, {}), {"users1_gender": "male"})
 
     def test_unmodeled_list_controls_default_to_no(self):
         question = {

@@ -449,11 +449,8 @@ code: |
     if has_children:
       children.target_number = len(children)
     interview_order_a_divorce_agreement
-    request_merge_agreement = (
-      children_of_marriage or not provisions_that_merge.all_false()
-    )
-    request_survive_agreement = True
-    set_petition_merger_survival_from_agreement = True
+
+  set_petition_merger_survival_values
 
   # Findings and Determinations (CJD 305) is only needed when the parties
   # deviate from the child support guidelines amount. Waiving support is a
@@ -482,6 +479,17 @@ code: |
     ask_affidavit_questions
 
   joint_petition_interview_order = True
+---
+code: |
+  if separation_agreement_format == "interview":
+    petition_request_merge_agreement = (
+      children_of_marriage or not provisions_that_merge.all_false()
+    )
+    petition_request_survive_agreement = True
+  else:
+    petition_request_merge_agreement = request_merge_agreement
+    petition_request_survive_agreement = request_survive_agreement
+  set_petition_merger_survival_values = True
 ---
 comment: |
   Search only the venue address worked out in divorce_joint_petition.yml.

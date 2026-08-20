@@ -29,16 +29,34 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         agreement_branch = order.split("if include_separation_agreement:", 1)[1].split(
             "# Findings and Determinations", 1
         )[0]
-        self.assertIn("provisions_that_merge.all_false()", agreement_branch)
-        self.assertIn("set_petition_merger_survival_from_agreement = True", agreement_branch)
+        self.assertNotIn("request_merge_agreement =", order)
+        self.assertNotIn("request_survive_agreement =", order)
+        self.assertIn("set_petition_merger_survival_values", agreement_branch)
 
-        competing_definitions = [
+        value_definitions = [
             document
             for document in documents("main_joint_petition.yml")
-            if "request_merge_agreement" in str(document.get("code", ""))
-            and document.get("id") != "joint petition interview order"
+            if "petition_request_merge_agreement" in str(document.get("code", ""))
         ]
-        self.assertEqual(competing_definitions, [])
+        self.assertEqual(len(value_definitions), 1)
+        value_definition = str(value_definitions[0]["code"])
+        self.assertIn("provisions_that_merge.all_false()", value_definition)
+        self.assertIn(
+            "petition_request_merge_agreement = request_merge_agreement",
+            value_definition,
+        )
+        self.assertIn(
+            "petition_request_survive_agreement = request_survive_agreement",
+            value_definition,
+        )
+
+        petition = "\n".join(
+            str(document)
+            for document in documents("divorce_joint_petition.yml")
+            if "request_merge_agreement" in str(document)
+        )
+        self.assertIn("${ petition_request_merge_agreement }", petition)
+        self.assertIn("${ petition_request_survive_agreement }", petition)
 
     def test_r408_order_seeks_field_variables_not_question_ids(self):
         order = identified_code("r408_report_of_absolute_divorce.yml", "interview order r408")

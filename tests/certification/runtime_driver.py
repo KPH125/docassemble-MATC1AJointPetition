@@ -160,6 +160,7 @@ DEFAULTS = {
     "email": "test@example.com",
     "tel": "6175550100",
     "phone": "6175550100",
+    "ssn": "123-45-6789",
     "date": "2025-01-15",
     "integer": 1,
     "number": 1,
@@ -311,7 +312,12 @@ def build_answer(
     visible_names: set[str] = set()
     for field in fields:
         controller = field.get("show_if_var")
-        if not controller:
+        # The API can expose a Python expression (for example,
+        # ``not showifdef("users1_gender")``) in show_if_var. We can safely
+        # evaluate only a controller that is another submitted field on this
+        # screen. Unknown or expression-based controllers stay visible so the
+        # server, not the driver, remains the authority on their condition.
+        if not controller or controller not in answer:
             continue
         raw = field["variable"]
         resolved = resolve_generic(raw, sought)
