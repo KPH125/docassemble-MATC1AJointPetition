@@ -6,7 +6,8 @@ of example runs.
 ## Proof artifacts
 
 - `baseline.json` pins the combined source, each local included package, and
-  known candidate overlays that have not yet been accepted.
+  known candidate overlays that have not yet been accepted. It also pins the
+  Docker image digest and external interview package versions.
 - `coverage_model.yml` declares the finite path model, input equivalence
   classes, list cardinality boundaries, and hang thresholds.
 - `build_catalog.py` resolves the local include graph and catalogs declared
@@ -14,11 +15,14 @@ of example runs.
 - `generate_scenarios.py` materializes every declared path archetype.
 - `runtime_driver.py` drives fresh API sessions and writes every transition,
   answer, terminal state, error, and timeout to a ledger.
+- `verify_runtime_manifest.py` rejects image or external-package drift before
+  a runtime result can count.
 - `screen_classification.yml` is the only place a local screen may be excluded,
   and every exclusion requires a source-backed reason.
 - `audit_coverage.py` compares runtime evidence with the static denominator and
-  fails if any screen is missing, an exclusion is stale or unsupported, or a
-  path failed.
+  fails if any screen or distinguishable duplicate-ID variant is missing, an
+  exclusion is stale or unsupported, a modeled path is absent, a path fails,
+  or a path reaches the wrong terminal outcome.
 
 Generated catalogs, scenarios, ledgers, logs, and runtime manifests are CI
 artifacts. They are intentionally not committed as hand-edited evidence.
@@ -31,8 +35,10 @@ A path fails when any one of these occurs:
 2. the same runtime state appears too many times consecutively;
 3. a state is revisited beyond the declared limit;
 4. a scenario exceeds its wall-clock budget;
-5. the interview exceeds its maximum step count; or
-6. Docassemble reports an infinite loop or another error screen.
+5. the interview exceeds its maximum step count;
+6. background document generation stays on AssemblyLine's waiting screen past
+   its separate task timeout; or
+7. Docassemble reports an infinite loop or another error screen.
 
 List questions include the sought variable and index in their state
 fingerprint, so legitimate repeated list screens are not mistaken for hangs.

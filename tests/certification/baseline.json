@@ -6,7 +6,8 @@
     "sha": "d7063d1ebd3ceb59808ac6934c40849ee0189a7a"
   },
   "runtime": {
-    "image": "jhpyle/docassemble@sha256:c0b0a707a6cd2149d5777ee83af1ea1de544210e597371eac93e67a1503c395c"
+    "image": "jhpyle/docassemble@sha256:c0b0a707a6cd2149d5777ee83af1ea1de544210e597371eac93e67a1503c395c",
+    "pip_freeze_sha256": "66b4611da4865095c1a70e2631ce8c553cadb51e8643ab54adb2f86df57f4e79"
   },
   "candidate_overlays": [
     {
@@ -51,13 +52,44 @@
       "repository": "SuffolkLITLab/docassemble-MATCFindingsAndDeterminations",
       "directory": "docassemble-MATCFindingsAndDeterminations",
       "sha": "9ce10b5f65b0fdd83919d151dee6d9a717723b26"
+    },
+    "docassemble.AssemblyLine": {
+      "repository": "SuffolkLITLab/docassemble-AssemblyLine",
+      "directory": "docassemble-AssemblyLine",
+      "sha": "1c435280ef9c27ed582944dbc1b8c71f8e662521"
+    },
+    "docassemble.ALMassachusetts": {
+      "repository": "SuffolkLITLab/docassemble-ALMassachusetts",
+      "directory": "docassemble-ALMassachusetts",
+      "sha": "854cbc7efc970f6f185bfcbcc6643c271632e0ca"
+    },
+    "docassemble.ALToolbox": {
+      "repository": "SuffolkLITLab/docassemble-ALToolbox",
+      "directory": "docassemble-ALToolbox",
+      "sha": "acbb22a0c5c7cffb3b4d1a1ca77971d047791639"
+    },
+    "docassemble.MassAccess": {
+      "repository": "SuffolkLITLab/docassemble-MassAccess",
+      "directory": "docassemble-MassAccess",
+      "sha": "daf7a99dba0eff96c4fda9f90800f8464c4492e7"
+    },
+    "docassemble.ALAffidavitOfIndigency": {
+      "repository": "SuffolkLITLab/docassemble-ALAffidavitOfIndigency",
+      "directory": "docassemble-ALAffidavitOfIndigency",
+      "sha": "414918eabd2ca2bcbbac15dccb30343aa1ff9e47"
+    },
+    "docassemble.GithubFeedbackForm": {
+      "repository": "SuffolkLITLab/docassemble-GithubFeedbackForm",
+      "directory": "docassemble-GithubFeedbackForm",
+      "sha": "ba9baa908425d12a2ea6ac7167f61aaecc570875"
     }
   },
-  "external_packages": [
-    "docassemble.AssemblyLine",
-    "docassemble.ALMassachusetts",
-    "docassemble.ALToolbox",
-    "docassemble.MassAccess",
-    "docassemble.ALAffidavitOfIndigency"
-  ]
+  "external_packages": {
+    "docassemble.AssemblyLine": "4.7.0",
+    "docassemble.ALMassachusetts": "0.3.0",
+    "docassemble.ALToolbox": "0.19.0",
+    "docassemble.MassAccess": "0.4.3",
+    "docassemble.ALAffidavitOfIndigency": "2.3.0",
+    "docassemble.GithubFeedbackForm": "0.5.6"
+  }
 }

@@ -242,9 +242,18 @@ def build_answer(question: dict[str, Any], scenario_variables: dict[str, Any]) -
         raw = field["variable"]
         resolved = resolve_generic(raw, sought)
         send_name = raw if raw.startswith(("x.", "x[")) else resolved
-        answer[send_name] = answer_for_field(field, resolved, scenario_variables)
+        if question.get("questionType") == "settrue":
+            answer[send_name] = scenario_variables.get(
+                resolved, scenario_variables.get(raw, True)
+            )
+        else:
+            answer[send_name] = answer_for_field(field, resolved, scenario_variables)
 
     # Do not submit fields hidden by a simple same-screen show-if condition.
+    # A screen can declare multiple conditional variants of the same variable;
+    # keep the variable if at least one of those variants is visible.
+    hidden_names: set[str] = set()
+    visible_names: set[str] = set()
     for field in fields:
         controller = field.get("show_if_var")
         if not controller:
@@ -255,8 +264,9 @@ def build_answer(question: dict[str, Any], scenario_variables: dict[str, Any]) -
         controller_value = answer.get(controller)
         expected = field.get("show_if_val")
         visible = show_if_matches(controller_value, expected)
-        if not visible:
-            answer.pop(send_name, None)
+        (visible_names if visible else hidden_names).add(send_name)
+    for send_name in hidden_names - visible_names:
+        answer.pop(send_name, None)
 
     field_names = {
         resolve_generic(field["variable"], sought)
@@ -312,6 +322,15 @@ class Client:
         response.raise_for_status()
         return response.json()
 
+    def variables(self, interview: str, session: str, secret: str) -> dict[str, Any]:
+        response = self.http.get(
+            f"{self.server}/api/session",
+            params=self._params(interview, session, secret),
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def answer(
         self,
         interview: str,
@@ -343,6 +362,29 @@ class Client:
             )
         response.raise_for_status()
         return response.json()
+
+    def action(
+        self,
+        interview: str,
+        session: str,
+        secret: str,
+        action: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> None:
+        payload = self._params(interview, session, secret)
+        payload.update(
+            {
+                "action": action,
+                "persistent": 1,
+                "arguments": canonical(arguments or {}),
+            }
+        )
+        response = self.http.post(
+            f"{self.server}/api/session/action",
+            data=payload,
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
 
     def delete(self, interview: str, session: str, secret: str) -> None:
         try:
@@ -430,8 +472,50 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                     result["failure"] = "unexpected_terminal"
                     result["expected_terminal_ids"] = sorted(expected_terminal_ids)
                 else:
-                    result["status"] = "pass"
-                    result["failure"] = None
+                    terminal_variables = client.variables(interview, session, secret)
+                    evidence_names = (
+                        "al_user_bundle",
+                        "divorcejointpetition_downloads_ready",
+                        "include_financial_statement",
+                        "include_separation_agreement",
+                        "include_child_support_guidelines_worksheet",
+                        "include_findings_and_determinations",
+                    )
+                    result["terminal_evidence"] = {
+                        name: terminal_variables[name]
+                        for name in evidence_names
+                        if name in terminal_variables
+                    }
+                    result["event_probes"] = []
+                    for probe in scenario.get("probe_events", []):
+                        client.action(
+                            interview,
+                            session,
+                            secret,
+                            probe["event"],
+                            probe.get("arguments"),
+                        )
+                        probe_question = client.question(interview, session, secret)
+                        probe_id = question_id(probe_question)
+                        probe_result = {
+                            "event": probe["event"],
+                            "id": probe_id,
+                            "type": probe_question.get("questionType"),
+                        }
+                        result["event_probes"].append(probe_result)
+                        if probe_id not in result["seen_screen_ids"]:
+                            result["seen_screen_ids"].append(probe_id)
+                        if is_error(probe_question):
+                            result["failure"] = "event_probe_error"
+                            probe_result["text"] = display_text(probe_question)[:1000]
+                            break
+                        if probe_id != probe["expected_id"]:
+                            result["failure"] = "unexpected_event_probe_screen"
+                            probe_result["expected_id"] = probe["expected_id"]
+                            break
+                    else:
+                        result["status"] = "pass"
+                        result["failure"] = None
                 break
 
             answer = build_answer(question, variables)

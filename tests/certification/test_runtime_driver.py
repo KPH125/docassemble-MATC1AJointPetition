@@ -27,14 +27,20 @@ def limits(**overrides):
 
 
 class FakeClient:
-    def __init__(self, questions):
+    def __init__(self, questions, actions=None):
         self.questions = iter(questions)
+        self.actions = actions or {}
+        self.pending_action = None
 
     def new_session(self, interview):
         return "session", "", interview
 
     def question(self, interview, session, secret):
-        value = next(self.questions)
+        if self.pending_action:
+            value = self.actions[self.pending_action]
+            self.pending_action = None
+        else:
+            value = next(self.questions)
         if isinstance(value, Exception):
             raise value
         return value
@@ -42,15 +48,35 @@ class FakeClient:
     def answer(self, interview, session, secret, variables, event_list=None):
         return {}
 
+    def variables(self, interview, session, secret):
+        return {"divorcejointpetition_downloads_ready": True}
+
+    def action(self, interview, session, secret, action, arguments=None):
+        self.pending_action = action
+
     def delete(self, interview, session, secret):
         return None
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_settrue_field_defaults_to_boolean_true(self):
+        question = {
+            "questionType": "settrue",
+            "fields": [{"variable_name": "intro_complete", "datatype": "text"}],
+        }
+        self.assertEqual(build_answer(question, {}), {"intro_complete": True})
+
     def test_string_false_show_if_value_keeps_visible_field(self):
         question = {
             "fields": [
                 {"variable_name": "documented", "datatype": "boolean"},
+                {
+                    "variable_name": "format",
+                    "datatype": "radio",
+                    "choices": [{"label": "Upload", "value": "upload"}],
+                    "show_if_var": "documented",
+                    "show_if_val": "True",
+                },
                 {
                     "variable_name": "format",
                     "datatype": "radio",
@@ -111,6 +137,7 @@ class RuntimeDriverTests(unittest.TestCase):
         result = run_scenario(FakeClient([terminal]), SCENARIO, limits())
         self.assertEqual(result["status"], "pass")
         self.assertIsNone(result["failure"])
+        self.assertTrue(result["terminal_evidence"]["divorcejointpetition_downloads_ready"])
 
     def test_unexpected_normal_terminal_fails(self):
         terminal = {
@@ -121,6 +148,32 @@ class RuntimeDriverTests(unittest.TestCase):
         scenario = {**SCENARIO, "expected_terminal_ids": ["download divorce joint petition"]}
         result = run_scenario(FakeClient([terminal]), scenario, limits())
         self.assertEqual(result["failure"], "unexpected_terminal")
+
+    def test_declared_event_probe_adds_its_screen_to_coverage(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        review = {
+            "id": "divorce joint petition review screen",
+            "questionType": "review",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "probe_events": [{
+                "event": "review_divorcejointpetition",
+                "expected_id": "divorce joint petition review screen",
+            }],
+        }
+        result = run_scenario(
+            FakeClient([terminal], {"review_divorcejointpetition": review}),
+            scenario,
+            limits(),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertIn("divorce joint petition review screen", result["seen_screen_ids"])
 
     @patch("runtime_driver.time.sleep", return_value=None)
     def test_download_waiting_screen_is_not_a_terminal_pass(self, _sleep):

@@ -145,6 +145,9 @@ jobs:
           docker exec "$DA_CONTAINER" bash -lc \
             'python_bin=$(find /usr/share/docassemble -maxdepth 3 -path "*/local3.*/bin/python" -print -quit); test -n "$python_bin"; "$python_bin" -m pip freeze' \
             > docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/pip-freeze.txt
+          python docassemble-MATC1ADivorceJointPetition/tests/certification/verify_runtime_manifest.py \
+            --image docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docker-image.json \
+            --pip-freeze docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/pip-freeze.txt
 
       - name: Run modeled baseline path
         working-directory: docassemble-MATC1ADivorceJointPetition

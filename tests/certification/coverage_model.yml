@@ -2,10 +2,13 @@ model_version: 1
 entrypoint: docassemble.MATC1ADivorceJointPetition:data/questions/main_joint_petition.yml
 default_terminal_ids:
   - download divorce joint petition
+default_probe_events:
+  - event: review_divorcejointpetition
+    expected_id: divorce joint petition review screen
 
-# The crawler explores every listed value whenever the variable is presented.
-# Fields not listed here receive one valid representative value unless a
-# validation rule requires a boundary representative.
+# Every listed value must appear in a declared modeled path. Runtime evidence
+# then proves the resulting screen sequence; fields outside the model receive
+# one valid representative unless a boundary case requires another value.
 dimensions:
   has_existing_1b_action: [false, true]
   financial_statement_scope: [neither, spouse_1_only, spouse_2_only, both]

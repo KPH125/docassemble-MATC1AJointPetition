@@ -35,6 +35,9 @@ def generate(model: dict, output: Path) -> list[Path]:
             "expected_terminal_ids": path.get(
                 "expected_terminal_ids", model.get("default_terminal_ids", [])
             ),
+            "probe_events": path.get(
+                "probe_events", model.get("default_probe_events", [])
+            ),
         }
         destination = output / f"{index:03d}_{slug(path['name'])}.json"
         destination.write_text(json.dumps(scenario, indent=2, sort_keys=True) + "\n")

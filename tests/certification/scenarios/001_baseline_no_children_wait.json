@@ -2,6 +2,16 @@
   "name": "baseline no children, no financial statements, agreement later",
   "interview": "docassemble.MATC1ADivorceJointPetition:data/questions/main_joint_petition.yml",
   "expected_terminal_ids": ["download divorce joint petition"],
+  "probe_events": [
+    {
+      "event": "review_divorcejointpetition",
+      "expected_id": "divorce joint petition review screen"
+    },
+    {
+      "event": "review_jointmotiontofilemarriagecertificatelate",
+      "expected_id": "jointmotiontofilemarriagecertificatelate review screen"
+    }
+  ],
   "variables": {
     "has_existing_1b_action": false,
     "financial_statement_scope": "neither",

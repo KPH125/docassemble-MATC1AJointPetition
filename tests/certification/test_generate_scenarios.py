@@ -24,6 +24,7 @@ class ScenarioGenerationTests(unittest.TestCase):
             for path in paths:
                 scenario = json.loads(path.read_text())
                 self.assertTrue(scenario["expected_terminal_ids"])
+                self.assertTrue(scenario["probe_events"])
 
     def test_every_dimension_value_appears_in_defaults_or_an_override(self):
         observed = {key: {self._freeze(value)} for key, value in self.model["default_variables"].items()}
