@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
-import yaml
+
+from model_loader import load_model
 
 
 HERE = Path(__file__).resolve().parent
@@ -734,7 +735,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
 
 
 def load_limits(model_path: Path) -> Limits:
-    model = yaml.safe_load(model_path.read_text())
+    model = load_model(model_path)
     policy = model["hang_policy"]
     return Limits(
         request_timeout=int(policy["request_timeout_seconds"]),
@@ -778,7 +779,7 @@ def main() -> int:
         parser.error("--server and --api-key (or DA_SERVER_URL/DA_API_KEY) are required")
 
     limits = load_limits(args.model)
-    model = yaml.safe_load(args.model.read_text())
+    model = load_model(args.model)
     workers = int(model["hang_policy"].get("runtime_workers", 1))
     if workers < 1:
         parser.error("hang_policy.runtime_workers must be at least 1")

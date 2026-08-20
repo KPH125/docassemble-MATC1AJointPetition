@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from model_loader import load_model
+
 
 HERE = Path(__file__).resolve().parent
 
@@ -165,7 +167,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=HERE / "coverage_audit.json")
     args = parser.parse_args()
     classifications = yaml.safe_load(args.classifications.read_text()) if args.classifications.exists() else {}
-    model = yaml.safe_load(args.model.read_text()) if args.model.exists() else {}
+    model = load_model(args.model) if args.model.exists() else {}
     report = audit(load_json(args.catalog), load_json(args.ledger), classifications or {}, model or {})
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True))

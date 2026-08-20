@@ -3,9 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import yaml
+from yaml.constructor import ConstructorError
 
 from generate_scenarios import expected_cardinalities, expected_terminal_evidence, generate
+from model_loader import load_model
 
 
 HERE = Path(__file__).resolve().parent
@@ -14,7 +15,7 @@ HERE = Path(__file__).resolve().parent
 class ScenarioGenerationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.model = yaml.safe_load((HERE / "coverage_model.yml").read_text())
+        cls.model = load_model(HERE / "coverage_model.yml")
 
     def test_every_declared_path_is_materialized(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -26,6 +27,13 @@ class ScenarioGenerationTests(unittest.TestCase):
                 self.assertTrue(scenario["expected_terminal_ids"])
                 self.assertTrue(scenario["expected_terminal_evidence"])
                 self.assertTrue(scenario["probe_events"])
+
+    def test_model_loader_rejects_duplicate_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            model_path = Path(directory) / "ambiguous.yml"
+            model_path.write_text("dimensions:\n  branch: true\n  branch: false\n")
+            with self.assertRaises(ConstructorError):
+                load_model(model_path)
 
     def test_bundle_evidence_is_derived_from_path_inputs(self):
         evidence = expected_terminal_evidence({

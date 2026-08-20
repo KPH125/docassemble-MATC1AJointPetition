@@ -8,7 +8,7 @@ import json
 import re
 from pathlib import Path
 
-import yaml
+from model_loader import load_model
 
 
 HERE = Path(__file__).resolve().parent
@@ -124,7 +124,7 @@ def main() -> int:
     parser.add_argument("--model", type=Path, default=HERE / "coverage_model.yml")
     parser.add_argument("--output", type=Path, default=HERE / "generated_scenarios")
     args = parser.parse_args()
-    paths = generate(yaml.safe_load(args.model.read_text()), args.output)
+    paths = generate(load_model(args.model), args.output)
     print(f"generated {len(paths)} modeled paths in {args.output}")
     return 0
 
