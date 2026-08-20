@@ -954,6 +954,8 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                             "event": probe["event"],
                             "id": probe_id,
                             "type": probe_question.get("questionType"),
+                            "source_file": question_source_file(probe_question, interview),
+                            "source_fingerprint": source_document_fingerprint(probe_question),
                         }
                         result["event_probes"].append(probe_result)
                         if probe_id not in result["seen_screen_ids"]:

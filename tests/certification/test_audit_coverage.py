@@ -20,7 +20,7 @@ class CoverageAuditTests(unittest.TestCase):
         }
         report = audit(catalog, ledger, {"proven_unreachable": {}})
         self.assertTrue(report["passed"])
-        self.assertEqual(report["unobserved_framework_catalog_screen_ids"], 1)
+        self.assertEqual(report["unobserved_framework_catalog_screens"], 1)
 
     def test_missing_cardinality_class_fails(self):
         catalog = {"screens": [{"id": "one"}]}
@@ -55,7 +55,7 @@ class CoverageAuditTests(unittest.TestCase):
         report = audit(
             catalog,
             ledger,
-            {"proven_unreachable": {"standalone only": "Not called by the combined parent order."}},
+            {"proven_unreachable": {"id:standalone only": "Not called by the combined parent order."}},
         )
         self.assertTrue(report["passed"])
 
@@ -84,11 +84,19 @@ class CoverageAuditTests(unittest.TestCase):
         self.assertFalse(report["passed"])
         self.assertEqual(report["missing_modeled_paths"], ["not run"])
 
-    def test_duplicate_id_requires_each_distinct_static_variant(self):
+    def test_duplicate_id_requires_each_exact_source_block(self):
         catalog = {
             "screens": [
-                {"id": "shared", "variables": ["first"]},
-                {"id": "shared", "variables": ["second"]},
+                {
+                    "id": "shared",
+                    "source_file": "docassemble.example:data/questions/one.yml",
+                    "source_fingerprint": "first",
+                },
+                {
+                    "id": "shared",
+                    "source_file": "docassemble.example:data/questions/two.yml",
+                    "source_fingerprint": "second",
+                },
             ]
         }
         ledger = {
@@ -96,14 +104,23 @@ class CoverageAuditTests(unittest.TestCase):
                 "name": "path",
                 "status": "pass",
                 "seen_screen_ids": ["shared"],
-                "steps": [{"id": "shared", "variant_fingerprint": "only-one"}],
+                "steps": [{
+                    "id": "shared",
+                    "source_file": "docassemble.example:data/questions/one.yml",
+                    "source_fingerprint": "first",
+                }],
             }]
         }
         report = audit(catalog, ledger, {"proven_unreachable": {}})
         self.assertFalse(report["passed"])
         self.assertEqual(
-            report["missing_screen_variants"]["shared"],
-            {"expected": 2, "observed": 1},
+            report["missing_local_screens"],
+            [{
+                "coordinate": "docassemble.example:data/questions/two.yml#second",
+                "id": "shared",
+                "source_file": "docassemble.example:data/questions/two.yml",
+                "document_index": None,
+            }],
         )
 
 

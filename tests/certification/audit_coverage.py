@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -21,17 +20,24 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
 
-def normalized_variable(value: Any) -> str:
-    return re.sub(r"\[\d+\]", "[i]", str(value or ""))
+def screen_coordinate(screen: dict[str, Any]) -> str:
+    """Identify one exact YAML screen block, even when IDs are reused."""
+    if screen.get("source_file") and screen.get("source_fingerprint"):
+        return f"{screen['source_file']}#{screen['source_fingerprint']}"
+    return f"id:{screen.get('id', '<unnamed>')}"
 
 
-def static_variant_signature(screen: dict[str, Any]) -> tuple[Any, ...]:
-    return (
-        screen.get("event"),
-        normalized_variable(screen.get("continue_button_field")),
-        tuple(sorted(normalized_variable(value) for value in screen.get("sets") or [])),
-        tuple(sorted(normalized_variable(value) for value in screen.get("variables") or [])),
-    )
+def runtime_screen_records(ledger: dict[str, Any]) -> list[dict[str, Any]]:
+    records = []
+    for result in ledger.get("results", []):
+        result_records = list(result.get("steps", [])) + list(result.get("event_probes", []))
+        if result_records:
+            records.extend(result_records)
+        else:
+            # Compatibility for small hand-built ledgers and historical runs;
+            # production ledgers always carry exact per-step coordinates.
+            records.extend({"id": screen_id} for screen_id in result.get("seen_screen_ids", []))
+    return records
 
 
 def audit(
@@ -40,54 +46,47 @@ def audit(
     classifications: dict[str, Any],
     model: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    observed = {
-        screen_id
-        for result in ledger.get("results", [])
-        for screen_id in result.get("seen_screen_ids", [])
+    runtime_records = runtime_screen_records(ledger)
+    observed_coordinates = {screen_coordinate(record) for record in runtime_records}
+    observed_ids = {
+        str(record["id"])
+        for record in runtime_records
+        if record.get("id")
     }
-    feature_declared = {
-        screen["id"]
+    feature_screens = [
+        screen
         for screen in catalog["screens"]
         if screen.get("coverage_scope", "combined_feature") == "combined_feature"
-    }
-    framework_catalog = {
-        screen["id"]
+    ]
+    framework_screens = [
+        screen
         for screen in catalog["screens"]
         if screen.get("coverage_scope") == "framework_support"
-    }
+    ]
+    feature_declared = {screen_coordinate(screen) for screen in feature_screens}
+    framework_catalog = {screen_coordinate(screen) for screen in framework_screens}
     # Feature-package screens are exhaustive obligations. Framework packages
     # also contain generic saved-session, authoring, and standalone utility
     # screens that this interview never calls; any framework screen actually
     # observed at runtime joins the obligation set automatically.
-    declared = feature_declared | (framework_catalog & observed)
-    static_variants: dict[str, set[tuple[Any, ...]]] = {}
-    for screen in catalog["screens"]:
-        if screen["id"] not in feature_declared:
-            continue
-        static_variants.setdefault(screen["id"], set()).add(static_variant_signature(screen))
-    observed_variants: dict[str, set[str]] = {}
-    for result in ledger.get("results", []):
-        for step in result.get("steps", []):
-            if step.get("id") and step.get("variant_fingerprint"):
-                observed_variants.setdefault(step["id"], set()).add(step["variant_fingerprint"])
-    has_variant_evidence = bool(observed_variants)
-    missing_screen_variants = (
-        {
-            screen_id: {
-                "expected": len(signatures),
-                "observed": len(observed_variants.get(screen_id, set())),
-            }
-            for screen_id, signatures in static_variants.items()
-            if len(observed_variants.get(screen_id, set())) < len(signatures)
-            and screen_id in observed
-        }
-        if has_variant_evidence
-        else {}
-    )
+    declared = feature_declared | (framework_catalog & observed_coordinates)
     exclusions = classifications.get("proven_unreachable", {})
     excluded = set(exclusions)
-    missing = declared - observed - excluded
+    missing = declared - observed_coordinates - excluded
     stale_exclusions = excluded - declared
+    catalog_by_coordinate = {
+        screen_coordinate(screen): screen
+        for screen in catalog["screens"]
+    }
+    missing_screens = [
+        {
+            "coordinate": coordinate,
+            "id": catalog_by_coordinate[coordinate]["id"],
+            "source_file": catalog_by_coordinate[coordinate].get("source_file"),
+            "document_index": catalog_by_coordinate[coordinate].get("document_index"),
+        }
+        for coordinate in sorted(missing)
+    ]
     failed_paths = [
         {
             "name": result.get("name"),
@@ -130,26 +129,27 @@ def audit(
         and not unsupported_exclusions
         and not missing_paths
         and not unexpected_paths
-        and not missing_screen_variants
         and not missing_cardinality_classes
     )
     return {
         "passed": passed,
-        "declared_local_screen_ids": len(declared),
-        "declared_feature_screen_ids": len(feature_declared),
-        "observed_framework_screen_ids": sorted(framework_catalog & observed),
-        "unobserved_framework_catalog_screen_ids": len(framework_catalog - observed),
-        "observed_screen_ids": len(observed),
-        "observed_local_screen_ids": len(declared & observed),
-        "observed_external_screen_ids": sorted(observed - declared),
+        "declared_local_screens": len(declared),
+        "declared_feature_screens": len(feature_declared),
+        "declared_feature_screen_ids": len({screen["id"] for screen in feature_screens}),
+        "observed_framework_screens": len(framework_catalog & observed_coordinates),
+        "unobserved_framework_catalog_screens": len(framework_catalog - observed_coordinates),
+        "observed_screen_coordinates": len(observed_coordinates),
+        "observed_screen_ids": len(observed_ids),
+        "observed_local_screens": len(declared & observed_coordinates),
+        "observed_external_screen_coordinates": sorted(observed_coordinates - declared),
         "proven_unreachable_screen_ids": len(excluded & declared),
-        "missing_local_screen_ids": sorted(missing),
+        "missing_local_screens": missing_screens,
+        "missing_local_screen_ids": sorted({screen["id"] for screen in missing_screens}),
         "stale_exclusions": sorted(stale_exclusions),
         "unsupported_exclusions": sorted(unsupported_exclusions),
         "missing_modeled_paths": sorted(missing_paths),
         "unexpected_runtime_paths": sorted(unexpected_paths),
         "failed_paths": failed_paths,
-        "missing_screen_variants": missing_screen_variants,
         "missing_cardinality_classes": missing_cardinality_classes,
         "observed_cardinality_classes": {
             name: sorted(values)
