@@ -285,6 +285,37 @@ class RuntimeDriverTests(unittest.TestCase):
             {"children[0].has_gal": False},
         )
 
+    def test_explicit_sought_hidden_value_is_submitted_for_api_traversal(self):
+        question = {
+            "event_list": ["children[0].gals.target_number"],
+            "fields": [
+                {
+                    "variable_name": "children[i].has_gal",
+                    "datatype": "threestate",
+                    "inputtype": "yesnomaybe",
+                },
+                {
+                    "variable_name": "children[i].gals.target_number",
+                    "datatype": "integer",
+                    "show_if_var": "children[i].has_gal",
+                    "show_if_val": "True",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {
+                    "children[i].has_gal": False,
+                    "children[i].gals.target_number": 0,
+                },
+            ),
+            {
+                "children[0].has_gal": False,
+                "children[0].gals.target_number": 0,
+            },
+        )
+
     def test_build_answer_omits_rows_beyond_modeled_count(self):
         question = {
             "fields": [
@@ -463,6 +494,16 @@ class RuntimeDriverTests(unittest.TestCase):
             limits(),
         )
         self.assertEqual(result["failure"], "request_timeout")
+
+    def test_http_error_records_status_and_response_body(self):
+        response = requests.Response()
+        response.status_code = 400
+        response._content = b"Failure to assemble interview"
+        error = requests.HTTPError("400 Client Error", response=response)
+        result = run_scenario(FakeClient([error]), SCENARIO, limits())
+        self.assertEqual(result["failure"], "http_error")
+        self.assertEqual(result["response_status_code"], 400)
+        self.assertEqual(result["response"], "Failure to assemble interview")
 
     def test_error_screen_fails(self):
         error = {

@@ -88,6 +88,8 @@ default_variables:
   marital_home.zip: '02108'
   ask_if_qualifies_for_fee_waiver: false
   custody_case_participation: no cases
+  children[i].has_gal: false
+  children[i].gals.target_number: 0
 
 # These are the finite path archetypes. Each entry is a complete modeled path:
 # the generator overlays it on default_variables and the runtime ledger proves

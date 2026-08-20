@@ -540,6 +540,16 @@ def scenario_value(
     return False, None
 
 
+def scenario_has_value(variables: dict[str, Any], resolved: str, raw: str) -> bool:
+    """Return whether a scenario explicitly models a field without consuming sequences."""
+    return any(
+        key in variables
+        for key in dict.fromkeys(
+            (resolved, raw, normalized_variable(resolved), normalized_variable(raw))
+        )
+    )
+
+
 def answer_for_field(
     field: dict[str, Any],
     resolved: str,
@@ -644,6 +654,34 @@ def build_answer(
         visible = show_if_matches(controller_value, expected)
         (visible_names if visible else hidden_names).add(send_name)
     for send_name in hidden_names - visible_names:
+        # POST /api/session assigns variables directly; it does not execute a
+        # browser form's validation code. Preserve an explicitly modeled
+        # hidden field when that field is the exact variable Docassemble is
+        # seeking, so the API traversal can satisfy the same invariant that a
+        # browser submission would establish in validation code.
+        matching_field = next(
+            (
+                field
+                for field in fields
+                if (
+                    field["variable"]
+                    if field["variable"].startswith(("x.", "x["))
+                    else resolve_generic(field["variable"], sought)
+                )
+                == send_name
+            ),
+            None,
+        )
+        if (
+            send_name == sought
+            and matching_field is not None
+            and scenario_has_value(
+                scenario_variables,
+                send_name,
+                matching_field["variable"],
+            )
+        ):
+            continue
         answer.pop(send_name, None)
 
     field_names = {
@@ -1038,6 +1076,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
         result["failure"] = "http_error"
         result["exception"] = str(exc)
         if getattr(exc, "response", None) is not None:
+            result["response_status_code"] = exc.response.status_code
             result["response"] = exc.response.text[:2000]
     except Exception as exc:  # strict ledger: unexpected harness errors also fail
         result["failure"] = "driver_exception"
