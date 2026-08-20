@@ -111,8 +111,11 @@ def audit(
         if result.get("status") != "pass":
             continue
         for name, evidence in result.get("cardinality_evidence", {}).items():
-            if isinstance(evidence.get("observed"), int):
-                observed_cardinality_classes.setdefault(name, set()).add(evidence["observed"])
+            observed_value = evidence.get("observed")
+            values = observed_value if isinstance(observed_value, list) else [observed_value]
+            for value in values:
+                if isinstance(value, int):
+                    observed_cardinality_classes.setdefault(name, set()).add(value)
     missing_cardinality_classes = {
         name: sorted(values - observed_cardinality_classes.get(name, set()))
         for name, values in expected_cardinality_classes.items()

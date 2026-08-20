@@ -56,8 +56,22 @@ def expected_cardinalities(
     result = {}
     path_cardinalities = path_cardinalities or {}
     for name, probe in model.get("cardinality_probes", {}).items():
+        if probe.get("when_variable") and not variables.get(probe["when_variable"]):
+            continue
+        if probe.get("when_values") and variables.get(probe["when_variable"]) not in probe["when_values"]:
+            continue
         if name in path_cardinalities:
             count = path_cardinalities[name]
+        elif "parent_cardinality" in probe:
+            parent_count = result[probe["parent_cardinality"]]["expected"]
+            if isinstance(parent_count, list):
+                raise ValueError(f"parent cardinality for {name} must be scalar")
+            count = [probe["default_count"] for _ in range(parent_count)]
+        elif "per_parent_count_variable" in probe:
+            count = [
+                probe["default_count"]
+                for _ in range(int(variables[probe["per_parent_count_variable"]]))
+            ]
         elif "fixed_count" in probe:
             count = probe["fixed_count"]
         elif "count_variable" in probe:
@@ -66,7 +80,7 @@ def expected_cardinalities(
             count = probe["default_count"]
         result[name] = {
             "variable": probe["variable"],
-            "expected": int(count),
+            "expected": [int(item) for item in count] if isinstance(count, list) else int(count),
         }
     return result
 

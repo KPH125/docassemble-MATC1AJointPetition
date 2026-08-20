@@ -3,7 +3,13 @@ from unittest.mock import patch
 
 import requests
 
-from runtime_driver import Limits, build_answer, run_scenario, serialized_collection_count
+from runtime_driver import (
+    Limits,
+    build_answer,
+    run_scenario,
+    serialized_collection_count,
+    serialized_path_cardinality,
+)
 
 
 SCENARIO = {
@@ -77,6 +83,20 @@ class RuntimeDriverTests(unittest.TestCase):
         )
         self.assertEqual(serialized_collection_count([]), 0)
         self.assertIsNone(serialized_collection_count("not a collection"))
+
+    def test_serialized_nested_collection_cardinalities(self):
+        variables = {
+            "children": {
+                "elements": [
+                    {"previous_addresses": {"elements": [{}, {}]}},
+                    {"previous_addresses": {"elements": []}},
+                ]
+            }
+        }
+        self.assertEqual(
+            serialized_path_cardinality(variables, "children[*].previous_addresses"),
+            [2, 0],
+        )
 
     def test_settrue_field_defaults_to_boolean_true(self):
         question = {

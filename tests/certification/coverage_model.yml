@@ -213,6 +213,9 @@ modeled_paths:
       children_of_marriage: true
       children_of_marriage_number: 1
       csg_worksheet_path: wait
+      children[0].previous_addresses.there_are_any: true
+    cardinalities:
+      child_previous_addresses: [1]
 
   - name: two children uploaded worksheet uploaded agreement no deviation
     family: children
@@ -230,8 +233,16 @@ modeled_paths:
       uploaded_agreement_addresses_child_support: true
       uploaded_agreement_child_support_deviation: false
       custody_case_participation: participated
+      other_care_custody_proceedings[0].other_party_types:
+        other: true
+        dcf: false
+      children[0].previous_addresses.there_are_any: true
+      children[0].previous_addresses.there_is_another:
+        $sequence: [true, false]
     cardinalities:
       other_care_custody_proceedings: 1
+      child_previous_addresses: [2, 0]
+      proceeding_other_parties: [1]
 
   - name: four children uploaded worksheet uploaded agreement deviation
     family: children
@@ -250,8 +261,21 @@ modeled_paths:
       custody_case_participation: participated
       other_care_custody_proceedings.there_is_another:
         $sequence: [true, false]
+      other_care_custody_proceedings[0].other_party_types:
+        other: true
+        dcf: false
+      other_care_custody_proceedings[0].other_parties.there_is_another:
+        $sequence: [true, true, false]
+      other_care_custody_proceedings[1].other_party_types:
+        other: false
+        dcf: false
+      children[0].previous_addresses.there_are_any: true
+      children[0].previous_addresses.there_is_another:
+        $sequence: [true, true, false]
     cardinalities:
       other_care_custody_proceedings: 2
+      child_previous_addresses: [3, 0, 0, 0]
+      proceeding_other_parties: [3, 0]
 
   - name: five children built worksheet built agreement
     family: children
@@ -262,8 +286,14 @@ modeled_paths:
       separation_agreement_format: interview
       child_support_deviation: false
       custody_case_participation: know of
+      other_care_custody_proceedings[0].other_party_types:
+        other: true
+        dcf: false
+      other_care_custody_proceedings[0].other_parties.there_is_another:
+        $sequence: [true, true, true, false]
     cardinalities:
       other_care_custody_proceedings: 1
+      proceeding_other_parties: [4]
 
   - name: nine children built worksheet built agreement deviation
     family: children
@@ -292,6 +322,15 @@ modeled_paths:
       financial_statement_scope: both
       users[0].gross_annual_income: 0
       users[1].gross_annual_income: 74999
+      users[0].motor_vehicles.there_are_any: true
+      users[0].pensions.there_are_any: true
+      users[0].other_assets.there_are_any: true
+      users[0].liabilities.there_are_any: true
+    cardinalities:
+      financial_motor_vehicles: [1, 0]
+      financial_pensions: [1, 0]
+      financial_other_assets: [1, 0]
+      financial_liabilities: [1, 0]
 
   - name: both long financial statements at upper boundary
     family: financial
@@ -299,6 +338,23 @@ modeled_paths:
       financial_statement_scope: both
       users[0].gross_annual_income: 75001
       users[1].gross_annual_income: 75001
+      users[0].motor_vehicles.there_are_any: true
+      users[0].motor_vehicles.there_is_another:
+        $sequence: [true, false]
+      users[0].pensions.there_are_any: true
+      users[0].pensions.there_is_another:
+        $sequence: [true, false]
+      users[0].other_assets.there_are_any: true
+      users[0].other_assets.there_is_another:
+        $sequence: [true, false]
+      users[0].liabilities.there_are_any: true
+      users[0].liabilities.there_is_another:
+        $sequence: [true, false]
+    cardinalities:
+      financial_motor_vehicles: [2, 0]
+      financial_pensions: [2, 0]
+      financial_other_assets: [2, 0]
+      financial_liabilities: [2, 0]
 
   - name: party A self employment schedule
     family: financial
@@ -353,7 +409,10 @@ cardinality_classes:
   other_care_custody_proceedings: [0, 1, 2]
   child_previous_addresses: [0, 1, 2, 3]
   proceeding_other_parties: [0, 1, 3, 4]
-  financial_lists: [0, 1, 2]
+  financial_motor_vehicles: [0, 1, 2]
+  financial_pensions: [0, 1, 2]
+  financial_other_assets: [0, 1, 2]
+  financial_liabilities: [0, 1, 2]
 
 cardinality_probes:
   users:
@@ -364,6 +423,39 @@ cardinality_probes:
     count_variable: children_of_marriage_number
   other_care_custody_proceedings:
     variable: other_care_custody_proceedings
+    default_count: 0
+  child_previous_addresses:
+    variable: children[*].previous_addresses
+    when_variable: children_of_marriage
+    per_parent_count_variable: children_of_marriage_number
+    default_count: 0
+  proceeding_other_parties:
+    variable: other_care_custody_proceedings[*].other_parties
+    parent_cardinality: other_care_custody_proceedings
+    default_count: 0
+  financial_motor_vehicles:
+    variable: users[*].motor_vehicles
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
+    default_count: 0
+  financial_pensions:
+    variable: users[*].pensions
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
+    default_count: 0
+  financial_other_assets:
+    variable: users[*].other_assets
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
+    default_count: 0
+  financial_liabilities:
+    variable: users[*].liabilities
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
     default_count: 0
 
 representatives:

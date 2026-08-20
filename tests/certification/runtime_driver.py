@@ -132,6 +132,45 @@ def serialized_collection_count(value: Any) -> int | None:
     return None
 
 
+def serialized_path_cardinality(root: dict[str, Any], path: str) -> int | list[int] | None:
+    """Count a serialized collection at a dotted path, with ``[*]`` fan-out."""
+    values: list[Any] = [root]
+    used_wildcard = False
+    for part in path.split("."):
+        match = re.fullmatch(r"([^\[]+)(?:\[(\*|\d+)\])?", part)
+        if not match:
+            return None
+        name, index = match.groups()
+        next_values: list[Any] = []
+        for container in values:
+            if not isinstance(container, dict) or name not in container:
+                continue
+            value = container[name]
+            if index is None:
+                next_values.append(value)
+                continue
+            elements = value.get("elements") if isinstance(value, dict) else value
+            if index == "*":
+                used_wildcard = True
+                if isinstance(elements, list):
+                    next_values.extend(elements)
+                elif isinstance(elements, dict):
+                    next_values.extend(elements.values())
+            elif isinstance(elements, list) and int(index) < len(elements):
+                next_values.append(elements[int(index)])
+            elif isinstance(elements, dict) and index in elements:
+                next_values.append(elements[index])
+        values = next_values
+    counts = [
+        count
+        for value in values
+        if (count := serialized_collection_count(value)) is not None
+    ]
+    if used_wildcard:
+        return counts
+    return counts[0] if counts else None
+
+
 def resolve_generic(variable: str, sought: str) -> str:
     if not variable.startswith(("x.", "x[")) or not sought:
         return variable
@@ -572,9 +611,15 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                     cardinality_mismatches = {}
                     for name, probe in scenario.get("expected_cardinalities", {}).items():
                         variable_name = probe["variable"]
-                        observed_count = serialized_collection_count(
-                            terminal_variables.get(variable_name)
-                        )
+                        if variable_name in terminal_variables:
+                            observed_count = serialized_collection_count(
+                                terminal_variables[variable_name]
+                            )
+                        else:
+                            observed_count = serialized_path_cardinality(
+                                terminal_variables,
+                                variable_name,
+                            )
                         result["cardinality_evidence"][name] = {
                             "variable": variable_name,
                             "expected": probe["expected"],
