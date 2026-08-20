@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+import yaml
 
 from model_loader import load_model
 
@@ -47,6 +48,20 @@ def question_source_file(question: dict[str, Any], interview: str) -> str:
     # Docassemble omits source_file for questions defined by the root
     # interview, so the resolved interview name is the authoritative fallback.
     return interview
+
+
+def source_document_fingerprint(question: dict[str, Any]) -> str | None:
+    """Fingerprint the exact YAML document that produced a runtime screen."""
+    source = question.get("source")
+    history = source.get("history") if isinstance(source, dict) else None
+    source_code = history.get("source_code") if isinstance(history, dict) else None
+    if not isinstance(source_code, str) or not source_code.strip():
+        return None
+    try:
+        document = yaml.safe_load(source_code)
+    except yaml.YAMLError:
+        document = source_code.strip()
+    return hashlib.sha256(canonical(document).encode()).hexdigest()[:16]
 
 
 def question_variable(question: dict[str, Any]) -> str:
@@ -736,6 +751,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 "event_list": question.get("event_list") or [],
                 "question_name": question.get("questionName"),
                 "source_file": question_source_file(question, interview),
+                "source_fingerprint": source_document_fingerprint(question),
                 "mandatory": bool(question.get("mandatory")),
             }
             if question.get("questionType") == "undefined_variable":

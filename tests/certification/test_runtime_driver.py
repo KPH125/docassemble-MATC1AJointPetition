@@ -13,6 +13,7 @@ from runtime_driver import (
     serialized_object_choices,
     serialized_path_cardinality,
     serialized_path_value,
+    source_document_fingerprint,
 )
 
 
@@ -100,6 +101,17 @@ class RuntimeDriverTests(unittest.TestCase):
             question_source_file({"source": {"history": {}}}, SCENARIO["interview"]),
             SCENARIO["interview"],
         )
+
+    def test_source_document_fingerprint_ignores_yaml_formatting(self):
+        first = {"source": {"history": {"source_code": "id: one\nquestion: Hello\n"}}}
+        second = {"source": {"history": {"source_code": "question: Hello\nid: one\n"}}}
+        self.assertEqual(
+            source_document_fingerprint(first),
+            source_document_fingerprint(second),
+        )
+
+    def test_source_document_fingerprint_requires_debug_source(self):
+        self.assertIsNone(source_document_fingerprint({"source": {"history": {}}}))
 
     def test_serialized_collection_count(self):
         self.assertEqual(

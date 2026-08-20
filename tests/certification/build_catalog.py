@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -107,6 +108,21 @@ def screen_variant_signature(screen: dict[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def source_document_fingerprint(document: dict[str, Any]) -> str:
+    payload = {
+        key: value
+        for key, value in document.items()
+        if not str(key).startswith("_")
+    }
+    serialized = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(serialized.encode()).hexdigest()[:16]
+
+
 def iter_documents(path: Path) -> Iterable[dict[str, Any]]:
     for index, document in enumerate(yaml.safe_load_all(path.read_text()), start=1):
         if isinstance(document, dict):
@@ -167,6 +183,7 @@ def build_catalog(workspace: Path, baseline: dict[str, Any]) -> dict[str, Any]:
             question_id = document.get("id")
             if question_id:
                 fields = document.get("fields") or []
+                relative_source = path.relative_to(roots[current_package]).as_posix()
                 block = {
                     "id": str(question_id),
                     "kind": document_kind(document),
@@ -179,6 +196,8 @@ def build_catalog(workspace: Path, baseline: dict[str, Any]) -> dict[str, Any]:
                         "combined_feature" if current_package in feature_packages else "framework_support"
                     ),
                     "path": file_record["path"],
+                    "source_file": f"{current_package}:data/questions/{relative_source}",
+                    "source_fingerprint": source_document_fingerprint(document),
                     "document_index": document["_document_index"],
                     "variables": direct_question_variables(document)
                     + [v for v in (field_variable(f) for f in fields) if v],

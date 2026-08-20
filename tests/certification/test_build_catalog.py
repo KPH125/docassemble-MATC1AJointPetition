@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 import unittest
 
-from build_catalog import build_catalog
+from build_catalog import build_catalog, source_document_fingerprint
 
 
 HERE = Path(__file__).resolve().parent
@@ -10,6 +10,14 @@ WORKSPACE = HERE.parents[2]
 
 
 class CatalogTests(unittest.TestCase):
+    def test_source_document_fingerprint_ignores_internal_metadata(self):
+        self.assertEqual(
+            source_document_fingerprint({"id": "one", "question": "Hello"}),
+            source_document_fingerprint(
+                {"id": "one", "question": "Hello", "_document_index": 7}
+            ),
+        )
+
     @classmethod
     def setUpClass(cls):
         cls.baseline = json.loads((HERE / "baseline.json").read_text())
@@ -74,6 +82,18 @@ class CatalogTests(unittest.TestCase):
             {tuple(screen["variables"]) for screen in sign_variants},
             {("users[0].signature",)},
         )
+
+    def test_catalog_records_exact_runtime_source_coordinates(self):
+        target = next(
+            screen
+            for screen in self.catalog["screens"]
+            if screen["id"] == "download divorce joint petition"
+        )
+        self.assertEqual(
+            target["source_file"],
+            "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml",
+        )
+        self.assertRegex(target["source_fingerprint"], r"^[0-9a-f]{16}$")
 
 
 if __name__ == "__main__":
