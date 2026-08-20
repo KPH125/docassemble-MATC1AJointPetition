@@ -9,6 +9,7 @@ It is the runtime half of the combined-interview coverage proof.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
 import hashlib
 import json
@@ -700,6 +701,26 @@ def load_limits(model_path: Path) -> Limits:
     )
 
 
+def write_ledger(path: Path, server: str, results: list[dict[str, Any]]) -> dict[str, Any]:
+    ledger = {
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "server": server,
+        "results": results,
+        "summary": {
+            "scenarios": len(results),
+            "passed": sum(result["status"] == "pass" for result in results),
+            "failed": sum(result["status"] != "pass" for result in results),
+            "unique_screen_ids": len({
+                screen
+                for result in results
+                for screen in result["seen_screen_ids"]
+            }),
+        },
+    }
+    path.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n")
+    return ledger
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--server", default=os.environ.get("DA_SERVER_URL", ""))
@@ -712,24 +733,39 @@ def main() -> int:
         parser.error("--server and --api-key (or DA_SERVER_URL/DA_API_KEY) are required")
 
     limits = load_limits(args.model)
-    client = Client(args.server, args.api_key, limits.request_timeout)
+    model = yaml.safe_load(args.model.read_text())
+    workers = int(model["hang_policy"].get("runtime_workers", 1))
+    if workers < 1:
+        parser.error("hang_policy.runtime_workers must be at least 1")
     scenarios = [json.loads(path.read_text()) for path in sorted(args.scenarios.glob("*.json"))]
-    results = [run_scenario(client, scenario, limits) for scenario in scenarios]
-    ledger = {
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "server": args.server,
-        "results": results,
-        "summary": {
-            "scenarios": len(results),
-            "passed": sum(result["status"] == "pass" for result in results),
-            "failed": sum(result["status"] != "pass" for result in results),
-            "unique_screen_ids": len({screen for result in results for screen in result["seen_screen_ids"]}),
-        },
-    }
-    args.ledger.write_text(json.dumps(ledger, indent=2, sort_keys=True) + "\n")
+    indexed_results: dict[int, dict[str, Any]] = {}
+
+    def run_indexed(index: int, scenario: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        client = Client(args.server, args.api_key, limits.request_timeout)
+        return index, run_scenario(client, scenario, limits)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(run_indexed, index, scenario)
+            for index, scenario in enumerate(scenarios)
+        ]
+        for future in as_completed(futures):
+            index, result = future.result()
+            indexed_results[index] = result
+            print(
+                f"{result['status'].upper()} {result['name']}: "
+                f"{result.get('failure') or result.get('terminal_id')}",
+                flush=True,
+            )
+            write_ledger(
+                args.ledger,
+                args.server,
+                [indexed_results[item] for item in sorted(indexed_results)],
+            )
+
+    results = [indexed_results[index] for index in range(len(scenarios))]
+    ledger = write_ledger(args.ledger, args.server, results)
     print(json.dumps(ledger["summary"], sort_keys=True))
-    for result in results:
-        print(f"{result['status'].upper()} {result['name']}: {result.get('failure') or result.get('terminal_id')}")
     return 1 if ledger["summary"]["failed"] else 0
 
 

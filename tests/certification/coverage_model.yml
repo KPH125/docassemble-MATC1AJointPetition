@@ -365,6 +365,7 @@ numeric_boundaries:
   number_of_children_eligible: [1, 2, 3, 4, 5, 6]
 
 hang_policy:
+  runtime_workers: 2
   request_timeout_seconds: 60
   scenario_timeout_seconds: 900
   max_steps: 500
