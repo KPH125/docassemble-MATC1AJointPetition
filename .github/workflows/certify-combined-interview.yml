@@ -96,7 +96,7 @@ jobs:
             --env DA_ADMIN_API_KEY="$da_key" \
             --cap-add SYS_PTRACE \
             --memory 4gb \
-            --stop-timeout 600 \
+            --stop-timeout 60 \
             -d -p 80:80 \
             "$DA_IMAGE"
 
@@ -194,4 +194,4 @@ jobs:
 
       - name: Stop disposable server
         if: always()
-        run: docker stop -t 600 "$DA_CONTAINER" || true
+        run: docker stop -t 60 "$DA_CONTAINER" || true
