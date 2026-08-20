@@ -45,7 +45,15 @@ class FakeClient:
             raise value
         return value
 
-    def answer(self, interview, session, secret, variables, event_list=None):
+    def answer(
+        self,
+        interview,
+        session,
+        secret,
+        variables,
+        event_list=None,
+        question_name=None,
+    ):
         return {}
 
     def variables(self, interview, session, secret):
@@ -88,6 +96,44 @@ class RuntimeDriverTests(unittest.TestCase):
         }
         answer = build_answer(question, {"documented": False, "format": "wait"})
         self.assertEqual(answer, {"documented": False, "format": "wait"})
+
+    def test_unmodeled_list_controls_default_to_no(self):
+        question = {
+            "fields": [{
+                "variable_name": "children[0].previous_addresses.there_is_another",
+                "datatype": "yesnoradio",
+            }]
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"children[0].previous_addresses.there_is_another": False},
+        )
+
+    def test_index_normalized_modeled_answer_applies_to_each_list_member(self):
+        question = {
+            "fields": [{
+                "variable_name": "children[2].previous_addresses.there_are_any",
+                "datatype": "yesnoradio",
+            }]
+        }
+        self.assertEqual(
+            build_answer(question, {"children[i].previous_addresses.there_are_any": True}),
+            {"children[2].previous_addresses.there_are_any": True},
+        )
+
+    def test_modeled_sequence_controls_repeated_list_answers(self):
+        question = {
+            "fields": [{
+                "variable_name": "items.there_is_another",
+                "datatype": "yesnoradio",
+            }]
+        }
+        positions = {}
+        variables = {"items.there_is_another": {"$sequence": [True, False]}}
+        self.assertEqual(build_answer(question, variables, positions), {"items.there_is_another": True})
+        self.assertEqual(build_answer(question, variables, positions), {"items.there_is_another": False})
+        with self.assertRaisesRegex(ValueError, "sequence exhausted"):
+            build_answer(question, variables, positions)
 
     def test_consecutive_repeated_state_is_a_hang_failure(self):
         stuck = {

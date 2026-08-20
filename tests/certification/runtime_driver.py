@@ -208,15 +208,58 @@ def serialized_checkboxes(resolved: str, choices: list[Any], selected: Any) -> d
     }
 
 
-def answer_for_field(field: dict[str, Any], resolved: str, variables: dict[str, Any]) -> Any:
-    if resolved in variables:
-        value = variables[resolved]
-    elif field["variable"] in variables:
-        value = variables[field["variable"]]
+def scenario_value(
+    variables: dict[str, Any],
+    resolved: str,
+    raw: str,
+    sequence_positions: dict[str, int] | None = None,
+) -> tuple[bool, Any]:
+    """Return an exact or index-normalized modeled answer.
+
+    ``$sequence`` values let a scenario answer repeated list controls such as
+    ``there_is_another`` deterministically. Exhaustion is an error: silently
+    repeating the last value could conceal an unexpected traversal loop.
+    """
+    for key in dict.fromkeys((resolved, raw, normalized_variable(resolved), normalized_variable(raw))):
+        if key not in variables:
+            continue
+        value = variables[key]
+        if isinstance(value, dict) and set(value) == {"$sequence"}:
+            sequence = value["$sequence"]
+            if not isinstance(sequence, list) or not sequence:
+                raise ValueError(f"modeled answer sequence for {key} must be a non-empty list")
+            positions = sequence_positions if sequence_positions is not None else {}
+            position = positions.get(key, 0)
+            if position >= len(sequence):
+                raise ValueError(f"modeled answer sequence exhausted for {key}")
+            positions[key] = position + 1
+            return True, sequence[position]
+        return True, value
+    return False, None
+
+
+def answer_for_field(
+    field: dict[str, Any],
+    resolved: str,
+    variables: dict[str, Any],
+    sequence_positions: dict[str, int] | None = None,
+) -> Any:
+    found, value = scenario_value(
+        variables,
+        resolved,
+        field["variable"],
+        sequence_positions,
+    )
+    if found:
+        pass
     elif field["datatype"] == "file":
         value = ""
     elif field["datatype"] == "checkboxes":
         value = {}
+    elif normalized_variable(resolved).endswith((".there_are_any", ".there_is_another")):
+        # Empty is the safe representative for a list unless the scenario
+        # explicitly claims a one-or-many cardinality.
+        value = False
     elif field["choices"]:
         value = first_choice(field["choices"])
     else:
@@ -234,10 +277,15 @@ def show_if_matches(actual: Any, expected: Any) -> bool:
     return actual == expected
 
 
-def build_answer(question: dict[str, Any], scenario_variables: dict[str, Any]) -> dict[str, Any]:
+def build_answer(
+    question: dict[str, Any],
+    scenario_variables: dict[str, Any],
+    sequence_positions: dict[str, int] | None = None,
+) -> dict[str, Any]:
     sought = question_variable(question)
     answer: dict[str, Any] = {}
     fields = field_info(question)
+    field_values: dict[str, Any] = {}
     for field in fields:
         raw = field["variable"]
         resolved = resolve_generic(raw, sought)
@@ -247,7 +295,14 @@ def build_answer(question: dict[str, Any], scenario_variables: dict[str, Any]) -
                 resolved, scenario_variables.get(raw, True)
             )
         else:
-            answer[send_name] = answer_for_field(field, resolved, scenario_variables)
+            if send_name not in field_values:
+                field_values[send_name] = answer_for_field(
+                    field,
+                    resolved,
+                    scenario_variables,
+                    sequence_positions,
+                )
+            answer[send_name] = field_values[send_name]
 
     # Do not submit fields hidden by a simple same-screen show-if condition.
     # A screen can declare multiple conditional variants of the same variable;
@@ -338,6 +393,7 @@ class Client:
         secret: str,
         variables: dict[str, Any],
         event_list: list[str] | None = None,
+        question_name: str | None = None,
     ) -> dict[str, Any]:
         payload = self._params(interview, session, secret)
         uploads = {
@@ -349,6 +405,8 @@ class Client:
         payload["variables"] = canonical(ordinary_variables)
         if event_list:
             payload["event_list"] = canonical(event_list)
+        if question_name:
+            payload["question_name"] = question_name
         with ExitStack() as stack:
             files = {
                 name: stack.enter_context(open((HERE.parents[1] / relative).resolve(), "rb"))
@@ -416,6 +474,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
         previous_state = ""
         consecutive = 0
         download_wait_started: float | None = None
+        sequence_positions: dict[str, int] = {}
         for step_number in range(1, limits.max_steps + 1):
             if time.monotonic() - started > limits.scenario_timeout:
                 result["failure"] = "scenario_timeout"
@@ -435,6 +494,8 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 "sought": question_variable(question),
                 "fields": field_info(question),
                 "event_list": question.get("event_list") or [],
+                "question_name": question.get("questionName"),
+                "mandatory": bool(question.get("mandatory")),
             }
             if question.get("questionType") == "undefined_variable":
                 step["undefined_variable"] = question.get("variable")
@@ -518,7 +579,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         result["failure"] = None
                 break
 
-            answer = build_answer(question, variables)
+            answer = build_answer(question, variables, sequence_positions)
             step["answer"] = answer
             response = client.answer(
                 interview,
@@ -526,6 +587,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 secret,
                 answer,
                 question.get("event_list") or [],
+                question.get("questionName") if question.get("mandatory") else None,
             )
             if is_error(response):
                 result["failure"] = "error_after_answer"
