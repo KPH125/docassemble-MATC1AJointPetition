@@ -18,6 +18,36 @@ def slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
 
+def expected_terminal_evidence(variables: dict) -> dict[str, bool]:
+    children = bool(variables.get("children_of_marriage"))
+    existing_1b = bool(variables.get("has_existing_1b_action"))
+    financial_scope = variables.get("financial_statement_scope", "neither")
+    agreement_format = variables.get("separation_agreement_format", "wait")
+    worksheet_path = variables.get("csg_worksheet_path", "wait")
+    if not children or worksheet_path == "wait" or agreement_format == "wait":
+        findings = False
+    elif agreement_format == "interview":
+        findings = bool(variables.get("child_support_deviation"))
+    else:
+        findings = bool(
+            variables.get("uploaded_agreement_addresses_child_support")
+            and variables.get("uploaded_agreement_child_support_deviation")
+        )
+    return {
+        "include_r408": not existing_1b,
+        "include_care_or_custody_affidavit": children,
+        "include_child_support_guidelines_worksheet": children and worksheet_path == "interview",
+        "include_financial_statement": financial_scope != "neither",
+        "include_financial_statement_spouse_1": financial_scope in ("both", "spouse_1_only"),
+        "include_financial_statement_spouse_2": financial_scope in ("both", "spouse_2_only"),
+        "include_separation_agreement": agreement_format == "interview",
+        "include_findings_and_determinations": findings,
+        "needs_late_marriage_certificate_motion": not bool(
+            variables.get("marriage_certificate_upload")
+        ),
+    }
+
+
 def generate(model: dict, output: Path) -> list[Path]:
     output.mkdir(parents=True, exist_ok=True)
     for old in output.glob("*.json"):
@@ -34,6 +64,9 @@ def generate(model: dict, output: Path) -> list[Path]:
             "variables": variables,
             "expected_terminal_ids": path.get(
                 "expected_terminal_ids", model.get("default_terminal_ids", [])
+            ),
+            "expected_terminal_evidence": path.get(
+                "expected_terminal_evidence", expected_terminal_evidence(variables)
             ),
             "probe_events": path.get(
                 "probe_events", model.get("default_probe_events", [])

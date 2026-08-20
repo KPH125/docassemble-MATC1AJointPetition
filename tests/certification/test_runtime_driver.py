@@ -135,6 +135,18 @@ class RuntimeDriverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sequence exhausted"):
             build_answer(question, variables, positions)
 
+    def test_code_button_uses_the_diversion_event_variable(self):
+        question = {
+            "id": "warning",
+            "questionType": "multiple_choice",
+            "event_list": ["warning_acknowledged"],
+            "fields": [],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"warning_acknowledged": True},
+        )
+
     def test_consecutive_repeated_state_is_a_hang_failure(self):
         stuck = {
             "id": "same screen",
@@ -194,6 +206,23 @@ class RuntimeDriverTests(unittest.TestCase):
         scenario = {**SCENARIO, "expected_terminal_ids": ["download divorce joint petition"]}
         result = run_scenario(FakeClient([terminal]), scenario, limits())
         self.assertEqual(result["failure"], "unexpected_terminal")
+
+    def test_terminal_bundle_evidence_mismatch_fails(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_terminal_evidence": {"include_financial_statement": True},
+        }
+        result = run_scenario(FakeClient([terminal]), scenario, limits())
+        self.assertEqual(result["failure"], "terminal_evidence_mismatch")
+        self.assertEqual(
+            result["terminal_evidence_mismatches"]["include_financial_statement"],
+            {"expected": True, "observed": "<missing>"},
+        )
 
     def test_declared_event_probe_adds_its_screen_to_coverage(self):
         terminal = {

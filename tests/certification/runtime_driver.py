@@ -329,6 +329,13 @@ def build_answer(
     } | {field["variable"] for field in fields}
     if sought and sought not in field_names:
         answer[sought] = scenario_variables.get(sought, True)
+    if question.get("questionType") == "multiple_choice" and not fields:
+        # A code-button screen has no ordinary field. Its event list identifies
+        # the variable whose definition diverted interview logic to this
+        # screen; the first button in our modeled warnings is the continue
+        # action that sets that variable true.
+        for event_name in question.get("event_list", []) or []:
+            answer[str(event_name)] = scenario_variables.get(str(event_name), True)
     if not answer:
         normalized_id = question_id(question).replace(" ", "_").replace("-", "_")
         answer[normalized_id] = scenario_variables.get(normalized_id, True)
@@ -537,16 +544,34 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                     evidence_names = (
                         "al_user_bundle",
                         "divorcejointpetition_downloads_ready",
+                        "include_r408",
+                        "include_care_or_custody_affidavit",
                         "include_financial_statement",
+                        "include_financial_statement_spouse_1",
+                        "include_financial_statement_spouse_2",
                         "include_separation_agreement",
                         "include_child_support_guidelines_worksheet",
                         "include_findings_and_determinations",
+                        "needs_late_marriage_certificate_motion",
                     )
                     result["terminal_evidence"] = {
                         name: terminal_variables[name]
                         for name in evidence_names
                         if name in terminal_variables
                     }
+                    expected_evidence = scenario.get("expected_terminal_evidence", {})
+                    evidence_mismatches = {
+                        name: {
+                            "expected": expected,
+                            "observed": result["terminal_evidence"].get(name, "<missing>"),
+                        }
+                        for name, expected in expected_evidence.items()
+                        if result["terminal_evidence"].get(name, "<missing>") != expected
+                    }
+                    if evidence_mismatches:
+                        result["failure"] = "terminal_evidence_mismatch"
+                        result["terminal_evidence_mismatches"] = evidence_mismatches
+                        break
                     result["event_probes"] = []
                     for probe in scenario.get("probe_events", []):
                         client.action(
