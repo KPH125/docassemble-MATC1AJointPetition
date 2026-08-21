@@ -69,6 +69,10 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             "conditional_document.cache.enabled = bool(final_enabled)",
             final_normalization,
         )
+        self.assertIn(
+            "conditional_document.enabled = bool(final_enabled)",
+            final_normalization,
+        )
         self.assertNotIn("del conditional_document.cache.enabled", final_normalization)
         self.assertIn(
             "a_divorce_agreement_Post_interview_instructions,",
@@ -187,6 +191,10 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             "divorce_joint_petition.yml", "interview_order_divorcejointpetition"
         )
         self.assertLess(
+            petition_order.index("children.ask_number = True"),
+            petition_order.index("children.gather()"),
+        )
+        self.assertLess(
             petition_order.index(
                 "children.target_number = children_of_marriage_number"
             ),
@@ -198,6 +206,10 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         agreement_branch = combined_order.split(
             "if include_separation_agreement:", 1
         )[1]
+        self.assertIn(
+            "children.ask_number = True",
+            agreement_branch,
+        )
         self.assertIn(
             "children.target_number = children_of_marriage_number",
             agreement_branch,

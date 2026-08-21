@@ -130,6 +130,7 @@ code: |
     # The combined interview asks for an exact count before gathering. Set the
     # list target here, where gather() consumes it, so included standalone
     # list-collection rules cannot fall back to a one-at-a-time loop.
+    children.ask_number = True
     children.target_number = children_of_marriage_number
     children.gather()
     set_parts(subtitle=str(children))
