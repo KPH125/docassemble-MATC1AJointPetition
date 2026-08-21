@@ -160,6 +160,11 @@ jobs:
             --image docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docker-image.json \
             --pip-freeze docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/pip-freeze.txt
 
+      - name: Install disposable runtime profiler
+        run: |
+          docker exec "$DA_CONTAINER" bash -lc \
+            'python_bin=$(find /usr/share/docassemble -maxdepth 3 -path "*/local3.*/bin/python" -print -quit); test -n "$python_bin"; "$python_bin" -m pip install py-spy==0.4.1'
+
       - name: Run every modeled path
         id: crawl
         continue-on-error: true
@@ -192,6 +197,13 @@ jobs:
           docker stats --no-stream "$DA_CONTAINER" > "$artifact_dir/docker-stats.txt"
           docker exec "$DA_CONTAINER" ps -eo pid,ppid,stat,etime,%cpu,%mem,rss,command \
             > "$artifact_dir/runtime-processes.txt"
+          worker_pid=$(docker exec "$DA_CONTAINER" bash -lc \
+            "ps -eo pid,%cpu,args --sort=-%cpu | awk '\$0 ~ /celery/ && \$0 !~ /awk/ {print \$1; exit}'")
+          if [ -n "$worker_pid" ]; then
+            docker exec "$DA_CONTAINER" bash -lc \
+              "pyspy_bin=\$(find /usr/share/docassemble -maxdepth 3 -path '*/local3.*/bin/py-spy' -print -quit); test -n \"\$pyspy_bin\"; timeout 30s \"\$pyspy_bin\" dump --native --pid '$worker_pid'" \
+              > "$artifact_dir/worker-stack.txt" 2>&1 || true
+          fi
 
       - name: Capture Docassemble logs on failure
         if: failure() || steps.crawl.outcome == 'failure'
