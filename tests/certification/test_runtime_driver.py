@@ -93,6 +93,25 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_client_uses_valid_snapshot_event_identifier(self):
+        client = Client("http://server", "key", 10)
+        client.http = Mock()
+        client.http.post.return_value = Mock(
+            json=Mock(return_value={"answer": True})
+        )
+
+        result = client.snapshot(
+            "docassemble.example:data/questions/main.yml",
+            "session",
+            "secret",
+            values=["answer"],
+        )
+
+        self.assertEqual(result, {"answer": True})
+        post_data = client.http.post.call_args.kwargs["data"]
+        self.assertEqual(post_data["action"], "combined_certification_snapshot")
+        self.assertNotIn(" ", post_data["action"])
+
     def test_client_saves_answer_before_fetching_next_question(self):
         client = Client("http://server", "key", 10)
         client.http = Mock()

@@ -313,7 +313,7 @@ code: |
 # every ALDocument in the session and can itself generate unrelated previews.
 # Return only the requested values and plain collection counts so observation
 # cannot change packet membership or exhaust the runtime under test.
-event: combined certification snapshot
+event: combined_certification_snapshot
 code: |
   certification_snapshot = {}
   for variable_name in action_argument("values") or []:

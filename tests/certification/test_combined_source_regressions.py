@@ -29,7 +29,7 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         snapshots = [
             document
             for document in all_documents
-            if document.get("event") == "combined certification snapshot"
+            if document.get("event") == "combined_certification_snapshot"
         ]
         self.assertEqual(len(snapshots), 1)
         snapshot = str(snapshots[0].get("code", ""))

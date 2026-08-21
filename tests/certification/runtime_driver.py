@@ -708,7 +708,7 @@ class Client:
         payload = self._params(interview, session, secret)
         payload.update(
             {
-                "action": "combined certification snapshot",
+                "action": "combined_certification_snapshot",
                 "read_only": 1,
                 "arguments": canonical(
                     {"values": values or [], "counts": counts or []}

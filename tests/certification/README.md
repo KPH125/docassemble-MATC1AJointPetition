@@ -59,7 +59,7 @@ python3 -m unittest discover -s tests/certification -p 'test_*.py' -v
 
 Runtime tests require a Docassemble server and API key. CI supplies both using
 an isolated Docker container. Terminal assertions use the interview's
-authenticated, read-only `combined certification snapshot` action rather than
+authenticated, read-only `combined_certification_snapshot` action rather than
 `GET /api/session`: serializing the complete interview dictionary can traverse
 ALDocument objects and generate previews merely by observing them. Exact packet
 membership is proved from `enabled_documents()` immediately before generation,
