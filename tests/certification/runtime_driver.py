@@ -718,6 +718,7 @@ class Client:
         *,
         values: list[str] | None = None,
         counts: list[str] | None = None,
+        files: list[str] | None = None,
     ) -> dict[str, Any]:
         """Fetch a compact read-only snapshot without serializing the whole session."""
         payload = self._params(interview, session, secret)
@@ -726,7 +727,11 @@ class Client:
                 "action": "combined_certification_snapshot",
                 "read_only": 1,
                 "arguments": canonical(
-                    {"values": values or [], "counts": counts or []}
+                    {
+                        "values": values or [],
+                        "counts": counts or [],
+                        "files": files or [],
+                    }
                 ),
             }
         )
@@ -759,12 +764,11 @@ class Client:
             payload["event_list"] = canonical(event_list)
         if question_name:
             payload["question_name"] = question_name
-        # Save the submitted variables first, then fetch the resulting screen.
-        # Besides matching the API's explicit partial-update mode, this keeps
-        # the committed session available when next-screen assembly fails and
-        # lets GET /question report the underlying assembly exception instead
-        # of the opaque set-and-assemble wrapper error.
-        payload["question"] = 0
+        # Ordinary answers are saved before a separate question fetch. Uploads
+        # use the API's documented set-and-evaluate request so file persistence
+        # and any PDF-preview task are created within the same completed
+        # request, instead of evaluating immediately after a partial update.
+        payload["question"] = 1 if uploads else 0
         with ExitStack() as stack:
             files = {
                 name: stack.enter_context(open((HERE.parents[1] / relative).resolve(), "rb"))
@@ -777,6 +781,8 @@ class Client:
                 timeout=self.timeout,
             )
         response.raise_for_status()
+        if uploads:
+            return response.json()
         return self.question(interview, session, secret)
 
     def action(
@@ -884,6 +890,13 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 if expected_terminal_ids and qid not in expected_terminal_ids:
                     result["failure"] = "unexpected_terminal"
                     result["expected_terminal_ids"] = sorted(expected_terminal_ids)
+                elif not scenario.get("terminal_assertions", True):
+                    # Some modeled branches intentionally end on a child
+                    # interview's explanatory dead end. Reaching the declared
+                    # terminal is the proof; a final divorce packet cannot and
+                    # should not exist on that route.
+                    result["status"] = "pass"
+                    result["failure"] = None
                 else:
                     evidence_names = (
                         "divorcejointpetition_downloads_ready",
@@ -905,6 +918,12 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                             "expected_cardinalities", {}
                         ).items()
                     }
+                    uploaded_variable_names = sorted(
+                        name
+                        for name, modeled_value in variables.items()
+                        if isinstance(modeled_value, dict)
+                        and "$file" in modeled_value
+                    )
                     terminal_variables = client.snapshot(
                         interview,
                         session,
@@ -919,6 +938,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                             for paths in cardinality_paths.values()
                             for path in paths
                         ],
+                        files=uploaded_variable_names,
                     )
                     result["terminal_evidence"] = {
                         name: terminal_variables[name]
@@ -944,6 +964,20 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                         if isinstance(download_evidence.get("bundle_files", []), list)
                         else [],
                     }
+                    result["uploaded_file_evidence"] = terminal_variables.get(
+                        "uploaded_files", {}
+                    )
+                    failed_uploads = {
+                        name: result["uploaded_file_evidence"].get(name)
+                        for name in uploaded_variable_names
+                        if not result["uploaded_file_evidence"].get(name, {}).get(
+                            "retrievable"
+                        )
+                    }
+                    if failed_uploads:
+                        result["failure"] = "uploaded_file_not_retrievable"
+                        result["failed_uploads"] = failed_uploads
+                        break
                     expected_bundle = scenario.get("expected_bundle_documents", {})
                     expected_enabled = {
                         name for name, expected in expected_bundle.items() if expected

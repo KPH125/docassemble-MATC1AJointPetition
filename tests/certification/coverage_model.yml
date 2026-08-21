@@ -33,6 +33,14 @@ dimensions:
   users[0].has_attorney: [false, true]
   users[1].has_attorney: [false, true]
   ask_if_qualifies_for_fee_waiver: [false, true]
+  fee_waiver_qualifies: [false, true]
+  health_insurance_custom_terms_adult: [false, true]
+  health_insurance_self_responsible: [false, true]
+  taxes_custom_terms: [false, true]
+  alimony_waived_all: [false, true]
+  alimony_payment_agreed: [false, true]
+  individual_debt_responsible_each: [false, true]
+  children[i].has_gal: [false, true]
   uploaded_agreement_addresses_child_support: [false, true]
   uploaded_agreement_child_support_deviation: [false, true]
   child_support_deviation: [false, true]
@@ -87,6 +95,13 @@ default_variables:
   marital_home.state: MA
   marital_home.zip: '02108'
   ask_if_qualifies_for_fee_waiver: false
+  fee_waiver_qualifies: true
+  health_insurance_custom_terms_adult: true
+  health_insurance_self_responsible: true
+  taxes_custom_terms: true
+  alimony_waived_all: true
+  alimony_payment_agreed: false
+  individual_debt_responsible_each: true
   custody_case_participation: no cases
   children[i].has_gal: false
   children[i].gals.target_number: 0
@@ -315,6 +330,39 @@ modeled_paths:
       users[0].gross_annual_income: 74999
       users[0].has_self_employment_income: false
       users[0].has_rental_income: false
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_court_and_parties_fs
+        expected_id: review_court_and_parties_fs
+      - event: review_personal_information_fs
+        expected_id: review_personal_information_fs
+      - event: review_income_fs
+        expected_id: review_income_fs
+      - event: review_deductions_short_fs
+        expected_id: review_deductions_short_fs
+      - event: review_expenses_short_fs
+        expected_id: review_expenses_short_fs
+      - event: review_assets_short_fs
+        expected_id: review_assets_short_fs
+      - event: review_liabilities_short_fs
+        expected_id: review_liabilities_short_fs
+      - event: review_fs
+        expected_id: review_fs
+      - event: review_all_sections_fs
+        expected_id: review_all_sections_fs
+      - event: users[0].income_list.revisit
+        expected_id: fs_income_revisit
+      - event: users[0].expense_list.revisit
+        expected_id: fs_expense_revisit
+      - event: users[0].motor_vehicles.revisit
+        expected_id: motor_vehicles_revisit
+      - event: users[0].pensions.revisit
+        expected_id: pensions_revisit
+      - event: users[0].other_assets.revisit
+        expected_id: other_assets_revisit
+      - event: users[0].liabilities.revisit
+        expected_id: liabilities_revisit
 
   - name: only party B long financial statement
     family: financial
@@ -323,6 +371,19 @@ modeled_paths:
       users[1].gross_annual_income: 75000
       users[1].has_self_employment_income: false
       users[1].has_rental_income: false
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_deductions_long_fs
+        expected_id: review_deductions_long_fs
+      - event: review_expenses_long_fs
+        expected_id: review_expenses_long_fs
+      - event: review_assets_long_fs
+        expected_id: review_assets_long_fs
+      - event: review_liabilities_long_fs
+        expected_id: review_liabilities_long_fs
+      - event: users[1].long_expense_list.revisit
+        expected_id: long_expense_revisit
 
   - name: both short financial statements
     family: financial
@@ -395,6 +456,17 @@ modeled_paths:
       users[0].gross_annual_income: 75000
       users[0].has_self_employment_income: true
       users[0].has_rental_income: true
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_schedule_a_fs
+        expected_id: review_schedule_a_fs
+      - event: review_schedule_b_fs
+        expected_id: review_schedule_b_fs
+      - event: users[0].schedule_a_expenses.revisit
+        expected_id: schedule_a_expenses_revisit
+      - event: users[0].schedule_b_expenses.revisit
+        expected_id: schedule_b_expenses_revisit
 
   - name: fee waiver interview
     family: fee_waiver
@@ -418,6 +490,111 @@ modeled_paths:
     overrides:
       previous_action: true
       request_survive_agreement: false
+
+  - name: fee waiver detailed supplement
+    family: fee_waiver
+    overrides:
+      ask_if_qualifies_for_fee_waiver: true
+      fee_waiver_qualifies: true
+      hh_income.value: 10000
+      hh_income.times_per_year: 12
+      can_afford: false
+      users[0].jobs.target_number: 1
+      users[0].nonemployment.selected_types:
+        other: true
+      users[0].nonemployment[0].times_per_year: 12
+      users[0].nonemployment[0].value: 5000
+      household.target_number: 1
+      household[i].jobs.target_number: 1
+      users[0].accounts.there_are_any: true
+
+  - name: fee waiver does not qualify
+    family: fee_waiver
+    overrides:
+      ask_if_qualifies_for_fee_waiver: true
+      fee_waiver_qualifies: false
+      hh_income.value: 10000
+      hh_income.times_per_year: 12
+      can_afford: true
+
+  - name: multiple venue counties
+    family: venue
+    overrides:
+      who_lives_at_marital_home: neither
+      users[0].address.county: Suffolk
+      users[1].address.address: 225 Main Street
+      users[1].address.city: Worcester
+      users[1].address.county: Worcester
+      users[1].address.zip: '01608'
+
+  - name: multiple courts in Essex County
+    family: venue
+    overrides:
+      marital_home.address: 2 Federal Street
+      marital_home.city: Salem
+      marital_home.county: Essex
+      marital_home.zip: '01970'
+      users[0].address.address: 2 Federal Street
+      users[0].address.city: Salem
+      users[0].address.county: Essex
+      users[0].address.zip: '01970'
+      users[1].address.address: 2 Federal Street
+      users[1].address.city: Salem
+      users[1].address.county: Essex
+      users[1].address.zip: '01970'
+
+  - name: agreement insurance alimony and individual debts
+    family: agreement
+    overrides:
+      separation_agreement_format: interview
+      health_insurance_custom_terms_adult: true
+      health_insurance_self_responsible: false
+      health_insurance_with_cost_allowed: 'Yes'
+      alimony_waived_all: false
+      alimony_payment_agreed: true
+      individual_debt_responsible_each: false
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_a_divorce_agreement
+        expected_id: review a divorce agreement
+
+  - name: adoption proceeding and appointed guardian
+    family: children
+    overrides:
+      children_of_marriage: true
+      children_of_marriage_number: 1
+      csg_worksheet_path: wait
+      custody_case_participation: participated
+      other_care_custody_proceedings[0].case_status: adoption
+      other_care_custody_proceedings[0].other_party_types:
+        other: false
+        dcf: false
+      children[i].has_gal: true
+      children[i].gals.target_number: 1
+    cardinalities:
+      other_care_custody_proceedings: 1
+
+  - name: agreement health insurance impasse
+    family: agreement_terminal
+    overrides:
+      separation_agreement_format: interview
+      health_insurance_custom_terms_adult: false
+    expected_terminal_ids:
+      - health insurance no agreement exit
+    terminal_assertions: false
+    probe_events: []
+
+  - name: agreement tax impasse
+    family: agreement_terminal
+    overrides:
+      separation_agreement_format: interview
+      health_insurance_custom_terms_adult: true
+      taxes_custom_terms: false
+    expected_terminal_ids:
+      - taxes no agreement exit
+    terminal_assertions: false
+    probe_events: []
 
 cardinality_classes:
   users: [2]

@@ -336,6 +336,20 @@ code: |
       )
     else:
       certification_snapshot[variable_name] = 0
+  certification_snapshot["uploaded_files"] = {}
+  for variable_name in action_argument("files") or []:
+    certification_file_list = value(variable_name)
+    certification_file = certification_file_list[0]
+    # path() performs the same SavedFile retrieval that Docassemble's PDF
+    # preview worker needs. A missing database/file-store record therefore
+    # fails this action instead of letting an upload route pass on metadata.
+    certification_file.path()
+    certification_snapshot["uploaded_files"][variable_name] = {
+      "retrievable": bool(certification_file.ok),
+      "filename": certification_file.filename,
+      "extension": certification_file.extension,
+      "mimetype": certification_file.mimetype,
+    }
   json_response(certification_snapshot)
 ---
 code: |
@@ -536,6 +550,11 @@ code: |
   ask_if_qualifies_for_fee_waiver
   if ask_if_qualifies_for_fee_waiver:
     ask_affidavit_questions
+    if not is_indigent:
+      # The standalone affidavit wrapper explains this outcome, but the
+      # combined parent includes only affidavit_body.yml. Do not silently
+      # return to the divorce packet when the user does not qualify.
+      doesnt_qualify_interstitial
 
   joint_petition_interview_order = True
 ---

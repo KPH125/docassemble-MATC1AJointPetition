@@ -72,7 +72,16 @@ class FakeClient:
     ):
         return {}
 
-    def snapshot(self, interview, session, secret, *, values=None, counts=None):
+    def snapshot(
+        self,
+        interview,
+        session,
+        secret,
+        *,
+        values=None,
+        counts=None,
+        files=None,
+    ):
         result = {
             name: self.terminal_variables[name]
             for name in (values or [])
@@ -84,6 +93,11 @@ class FakeClient:
             value = self.terminal_variables[name]
             count = serialized_collection_count(value)
             result[name] = value if count is None else count
+        if files:
+            result["uploaded_files"] = {
+                name: {"retrievable": True, "filename": "fixture.pdf"}
+                for name in files
+            }
         return result
 
     def action(self, interview, session, secret, action, arguments=None):
@@ -178,6 +192,47 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertEqual(post_data["question"], 0)
         self.assertEqual(post_data["variables"], '{"answer":true}')
         client.http.get.assert_called_once()
+
+    def test_client_upload_uses_single_evaluated_api_request(self):
+        client = Client("http://server", "key", 10)
+        client.http = Mock()
+        client.http.post.return_value = Mock(
+            json=Mock(return_value={"id": "next"})
+        )
+        result = client.answer(
+            "docassemble.example:data/questions/main.yml",
+            "session",
+            "secret",
+            {
+                "uploaded_document": {
+                    "$file": "docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf"
+                }
+            },
+        )
+
+        self.assertEqual(result, {"id": "next"})
+        post_data = client.http.post.call_args.kwargs["data"]
+        self.assertEqual(post_data["question"], 1)
+        self.assertIn("uploaded_document", client.http.post.call_args.kwargs["files"])
+        client.http.get.assert_not_called()
+
+    def test_declared_early_terminal_passes_without_packet_assertions(self):
+        terminal = {
+            "id": "taxes no agreement exit",
+            "questionType": "deadend",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_terminal_ids": ["taxes no agreement exit"],
+            "terminal_assertions": False,
+        }
+
+        result = run_scenario(FakeClient([terminal]), scenario, limits())
+
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["terminal_id"], "taxes no agreement exit")
+        self.assertNotIn("terminal_evidence", result)
 
     def test_bundle_membership_mismatch_fails_terminal(self):
         terminal = {

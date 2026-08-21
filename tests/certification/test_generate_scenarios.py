@@ -30,9 +30,14 @@ class ScenarioGenerationTests(unittest.TestCase):
             for path in paths:
                 scenario = json.loads(path.read_text())
                 self.assertTrue(scenario["expected_terminal_ids"])
-                self.assertTrue(scenario["expected_terminal_evidence"])
-                self.assertTrue(scenario["expected_bundle_documents"])
-                self.assertTrue(scenario["probe_events"])
+                if scenario["terminal_assertions"]:
+                    self.assertTrue(scenario["expected_terminal_evidence"])
+                    self.assertTrue(scenario["expected_bundle_documents"])
+                    self.assertTrue(scenario["probe_events"])
+                else:
+                    self.assertFalse(scenario["expected_terminal_evidence"])
+                    self.assertFalse(scenario["expected_bundle_documents"])
+                    self.assertFalse(scenario["expected_cardinalities"])
 
     def test_financial_paths_explicitly_choose_schedule_scope(self):
         with tempfile.TemporaryDirectory() as directory:

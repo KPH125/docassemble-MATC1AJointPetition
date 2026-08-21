@@ -69,6 +69,7 @@ def expected_bundle_documents(variables: dict) -> dict[str, bool]:
         # and must finish with an indigency form in the packet.
         "affidavitofindigency_attachment": bool(
             variables.get("ask_if_qualifies_for_fee_waiver")
+            and variables.get("fee_waiver_qualifies", True)
         ),
         "child_care_or_custody_disclosure_affidavit_next_steps": terminal[
             "include_care_or_custody_affidavit"
@@ -149,6 +150,7 @@ def generate(model: dict, output: Path) -> list[Path]:
     for index, path in enumerate(model.get("modeled_paths", []), start=1):
         variables = dict(defaults)
         variables.update(path.get("overrides", {}))
+        terminal_assertions = path.get("terminal_assertions", True)
         scenario = {
             "name": path["name"],
             "family": path["family"],
@@ -157,15 +159,20 @@ def generate(model: dict, output: Path) -> list[Path]:
             "expected_terminal_ids": path.get(
                 "expected_terminal_ids", model.get("default_terminal_ids", [])
             ),
+            "terminal_assertions": terminal_assertions,
             "expected_terminal_evidence": path.get(
-                "expected_terminal_evidence", expected_terminal_evidence(variables)
+                "expected_terminal_evidence",
+                expected_terminal_evidence(variables) if terminal_assertions else {},
             ),
             "expected_bundle_documents": path.get(
-                "expected_bundle_documents", expected_bundle_documents(variables)
+                "expected_bundle_documents",
+                expected_bundle_documents(variables) if terminal_assertions else {},
             ),
             "expected_cardinalities": path.get(
                 "expected_cardinalities",
-                expected_cardinalities(model, variables, path.get("cardinalities")),
+                expected_cardinalities(model, variables, path.get("cardinalities"))
+                if terminal_assertions
+                else {},
             ),
             "probe_events": path.get(
                 "probe_events", model.get("default_probe_events", [])
