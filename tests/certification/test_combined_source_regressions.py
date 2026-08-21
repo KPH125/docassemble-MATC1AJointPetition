@@ -76,6 +76,11 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             order.index("combined_bundle_enabled_document_names"),
             order.index("generate_downloads_with_docx_task"),
         )
+        self.assertIn('defined("al_user_bundle._downloadable_files")', order)
+        self.assertLess(
+            order.index("generate_downloads_with_docx_task.ready()"),
+            order.index('defined("al_user_bundle._downloadable_files")'),
+        )
         self.assertLess(
             order.index("combined_bundle_download_evidence"),
             order.index("divorcejointpetition_download", order.index("combined_bundle_download_evidence")),
