@@ -182,6 +182,19 @@ jobs:
             --ledger tests/certification/artifacts/runtime-ledger.json \
             --output tests/certification/artifacts/coverage-audit.json
 
+      - name: Reject background worker task errors
+        if: always()
+        run: |
+          artifact_dir=docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
+          mkdir -p "$artifact_dir"
+          docker cp "$DA_CONTAINER:/usr/share/docassemble/log/worker.log" \
+            "$artifact_dir/worker.log"
+          if grep -E "Task tasks\..*raised unexpected|Could not retrieve file" \
+            "$artifact_dir/worker.log"; then
+            echo "Docassemble recorded an unexpected background worker failure."
+            exit 1
+          fi
+
       - name: Capture runtime resource diagnostics
         if: always()
         continue-on-error: true

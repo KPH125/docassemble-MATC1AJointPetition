@@ -313,6 +313,13 @@ modeled_paths:
     cardinalities:
       other_care_custody_proceedings: 1
       proceeding_other_parties: [4]
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_a_divorce_agreement
+        expected_id: review a divorce agreement
+      - event: children.revisit
+        expected_id: edit children
 
   - name: nine children built worksheet built agreement deviation
     family: children
@@ -322,6 +329,11 @@ modeled_paths:
       csg_worksheet_path: interview
       separation_agreement_format: interview
       child_support_deviation: true
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_cjd_305
+        expected_id: review cjd_305
 
   - name: only party A short financial statement
     family: financial
@@ -330,6 +342,10 @@ modeled_paths:
       users[0].gross_annual_income: 74999
       users[0].has_self_employment_income: false
       users[0].has_rental_income: false
+      users[0].income_list.selected_types:
+        wages: true
+      users[0].expense_list.selected_types:
+        rent: true
     probe_events:
       - event: review_divorcejointpetition
         expected_id: divorce joint petition review screen
@@ -363,6 +379,8 @@ modeled_paths:
         expected_id: other_assets_revisit
       - event: users[0].liabilities.revisit
         expected_id: liabilities_revisit
+      - event: users.revisit
+        expected_id: edit users
 
   - name: only party B long financial statement
     family: financial
@@ -371,6 +389,10 @@ modeled_paths:
       users[1].gross_annual_income: 75000
       users[1].has_self_employment_income: false
       users[1].has_rental_income: false
+      users[1].income_list.selected_types:
+        wages: true
+      users[1].long_expense_list.selected_types:
+        rent: true
     probe_events:
       - event: review_divorcejointpetition
         expected_id: divorce joint petition review screen
@@ -456,6 +478,10 @@ modeled_paths:
       users[0].gross_annual_income: 75000
       users[0].has_self_employment_income: true
       users[0].has_rental_income: true
+      users[0].schedule_a_expenses.there_are_any: true
+      users[0].schedule_a_expenses.there_is_another: false
+      users[0].schedule_b_expenses.there_are_any: true
+      users[0].schedule_b_expenses.there_is_another: false
     probe_events:
       - event: review_divorcejointpetition
         expected_id: divorce joint petition review screen
@@ -516,6 +542,23 @@ modeled_paths:
       hh_income.value: 10000
       hh_income.times_per_year: 12
       can_afford: true
+
+  - name: fee waiver detailed income qualifies after reconciliation
+    family: fee_waiver
+    overrides:
+      ask_if_qualifies_for_fee_waiver: true
+      fee_waiver_qualifies: true
+      hh_income.value: 10000
+      hh_income.times_per_year: 12
+      can_afford: false
+      has_household_members: false
+      users[0].jobs.target_number: 1
+      users[0].jobs[0].is_hourly: false
+      users[0].jobs[0].times_per_year: 12
+      users[0].jobs[0].value: 100
+      users[0].jobs[0].deduction: 0
+      users[0].nonemployment.selected_types: {}
+      confirm_can_skip_supplement: true
 
   - name: multiple venue counties
     family: venue

@@ -40,12 +40,19 @@ def limits(**overrides):
 
 
 class FakeClient:
-    def __init__(self, questions, actions=None, terminal_variables=None):
+    def __init__(
+        self,
+        questions,
+        actions=None,
+        terminal_variables=None,
+        uploaded_file_evidence=None,
+    ):
         self.questions = iter(questions)
         self.actions = actions or {}
         self.terminal_variables = terminal_variables or {
             "divorcejointpetition_downloads_ready": True,
         }
+        self.uploaded_file_evidence = uploaded_file_evidence
         self.pending_action = None
 
     def new_session(self, interview):
@@ -95,7 +102,11 @@ class FakeClient:
             result[name] = value if count is None else count
         if files:
             result["uploaded_files"] = {
-                name: {"retrievable": True, "filename": "fixture.pdf"}
+                name: (
+                    self.uploaded_file_evidence.get(name, {})
+                    if self.uploaded_file_evidence is not None
+                    else {"retrievable": True, "filename": "fixture.pdf"}
+                )
                 for name in files
             }
         return result
@@ -320,6 +331,33 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertEqual(result["failure"], "bundle_document_mismatch")
         self.assertIn(
             "<failed-downloads>", result["bundle_document_mismatches"]
+        )
+
+    def test_uploaded_file_must_remain_retrievable_at_terminal(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        client = FakeClient(
+            [terminal],
+            uploaded_file_evidence={"uploaded_document": {"retrievable": False}},
+        )
+        scenario = {
+            **SCENARIO,
+            "variables": {
+                "uploaded_document": {
+                    "$file": "docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf"
+                }
+            },
+        }
+
+        result = run_scenario(client, scenario, limits())
+
+        self.assertEqual(result["failure"], "uploaded_file_not_retrievable")
+        self.assertEqual(
+            result["failed_uploads"],
+            {"uploaded_document": {"retrievable": False}},
         )
 
     def test_question_source_file_uses_included_file_history(self):
