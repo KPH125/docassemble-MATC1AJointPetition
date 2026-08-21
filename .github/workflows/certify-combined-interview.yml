@@ -184,6 +184,15 @@ jobs:
             --ledger tests/certification/artifacts/runtime-ledger.json \
             --output tests/certification/artifacts/coverage-audit.json
 
+      - name: Capture runtime resource diagnostics
+        if: always()
+        continue-on-error: true
+        run: |
+          artifact_dir=docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
+          docker stats --no-stream "$DA_CONTAINER" > "$artifact_dir/docker-stats.txt"
+          docker exec "$DA_CONTAINER" ps -eo pid,ppid,stat,etime,%cpu,%mem,rss,command \
+            > "$artifact_dir/runtime-processes.txt"
+
       - name: Capture Docassemble logs on failure
         if: failure() || steps.crawl.outcome == 'failure'
         run: |
