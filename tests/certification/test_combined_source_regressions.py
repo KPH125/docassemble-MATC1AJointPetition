@@ -35,6 +35,7 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         snapshot = str(snapshots[0].get("code", ""))
         self.assertIn('action_argument("values")', snapshot)
         self.assertIn('action_argument("counts")', snapshot)
+        self.assertIn("certification_value.as_serializable()", snapshot)
         self.assertIn("json_response(certification_snapshot)", snapshot)
 
         order_documents = [

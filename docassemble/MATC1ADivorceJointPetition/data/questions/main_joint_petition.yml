@@ -320,7 +320,12 @@ code: |
   certification_snapshot = {}
   for variable_name in action_argument("values") or []:
     if defined(variable_name):
-      certification_snapshot[variable_name] = value(variable_name)
+      certification_value = value(variable_name)
+      certification_snapshot[variable_name] = (
+        certification_value.as_serializable()
+        if hasattr(certification_value, "as_serializable")
+        else certification_value
+      )
   for variable_name in action_argument("counts") or []:
     if defined(variable_name):
       certification_collection = value(variable_name)
