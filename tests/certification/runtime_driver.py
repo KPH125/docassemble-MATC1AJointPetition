@@ -309,18 +309,21 @@ def field_within_cardinalities(
 def resolve_generic(variable: str, sought: str) -> str:
     if not sought:
         return variable
-    if "[i]" in variable:
-        generic_root = variable.split("[i]", 1)[0]
+    if variable.startswith(("x.", "x[")):
+        object_name = re.split(r"[.[]", sought, maxsplit=1)[0]
+        index_match = re.search(r"\[(\d+)\]", sought)
+        if variable.startswith("x[i]") and index_match:
+            return f"{object_name}[{index_match.group(1)}]{variable[4:]}"
+        return object_name + variable[1:]
+
+    resolved = variable
+    for iterator in re.findall(r"\[([a-z])\]", variable):
+        marker = f"[{iterator}]"
+        generic_root = resolved.split(marker, 1)[0]
         index_match = re.search(rf"^{re.escape(generic_root)}\[(\d+)\]", sought)
         if index_match:
-            return variable.replace("[i]", f"[{index_match.group(1)}]", 1)
-    if not variable.startswith(("x.", "x[")):
-        return variable
-    object_name = re.split(r"[.[]", sought, maxsplit=1)[0]
-    index_match = re.search(r"\[(\d+)\]", sought)
-    if variable.startswith("x[i]") and index_match:
-        return f"{object_name}[{index_match.group(1)}]{variable[4:]}"
-    return object_name + variable[1:]
+            resolved = resolved.replace(marker, f"[{index_match.group(1)}]", 1)
+    return resolved
 
 
 def field_info(question: dict[str, Any]) -> list[dict[str, Any]]:
@@ -458,6 +461,31 @@ def serialized_object_choices(
     return result
 
 
+def serialized_object_choice(
+    resolved: str,
+    choices: list[Any],
+    selected: Any,
+    current_variables: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Serialize one object reference instead of assigning its instance name string."""
+    available = {
+        str(choice.get("value")): choice
+        for choice in choices
+        if isinstance(choice, dict) and choice.get("value") is not None
+    }
+    selected_name = str(selected)
+    if selected_name not in available:
+        raise ValueError(
+            f"object selection for {resolved} contains unknown choice: {selected_name}"
+        )
+    if current_variables is None:
+        raise ValueError(f"object selection for {resolved} requires current session variables")
+    source = serialized_path_value(current_variables, selected_name)
+    if not isinstance(source, dict) or not source.get("_class"):
+        raise ValueError(f"object choice {selected_name} is absent from current session variables")
+    return copy.deepcopy(source)
+
+
 def scenario_value(
     variables: dict[str, Any],
     resolved: str,
@@ -537,6 +565,13 @@ def answer_for_field(
             value,
             current_variables,
         )
+    if field["datatype"] in {"object", "object_radio"} and field["choices"]:
+        return serialized_object_choice(
+            resolved,
+            field["choices"],
+            value,
+            current_variables,
+        )
     return value
 
 
@@ -564,7 +599,7 @@ def build_answer(
         resolved = resolve_generic(raw, sought)
         if not field_within_cardinalities(resolved, expected_cardinalities):
             continue
-        if field["datatype"] == "object" and any(
+        if field["datatype"] in {"object", "object_radio"} and any(
             resolve_generic(other["variable"], sought).startswith(resolved + ".")
             for other in fields
             if other is not field
@@ -598,6 +633,9 @@ def build_answer(
     hidden_names: set[str] = set()
     visible_names: set[str] = set()
     for field in fields:
+        raw = field["variable"]
+        resolved = resolve_generic(raw, sought)
+        send_name = raw if raw.startswith(("x.", "x[")) else resolved
         controller = resolve_generic(str(field.get("show_if_var") or ""), sought)
         # The API can expose a Python expression (for example,
         # ``not showifdef("users1_gender")``) in show_if_var. We can safely
@@ -605,10 +643,8 @@ def build_answer(
         # screen. Unknown or expression-based controllers stay visible so the
         # server, not the driver, remains the authority on their condition.
         if not controller or controller not in answer:
+            visible_names.add(send_name)
             continue
-        raw = field["variable"]
-        resolved = resolve_generic(raw, sought)
-        send_name = raw if raw.startswith(("x.", "x[")) else resolved
         controller_value = answer.get(controller)
         expected = field.get("show_if_val")
         condition_matches = show_if_matches(controller_value, expected)
@@ -1098,7 +1134,8 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                 break
 
             needs_current_variables = any(
-                field["datatype"] in {"object_checkboxes", "object_multiselect"}
+                field["datatype"]
+                in {"object", "object_radio", "object_checkboxes", "object_multiselect"}
                 and field_within_cardinalities(
                     resolve_generic(field["variable"], question_variable(question)),
                     scenario.get("expected_cardinalities"),
@@ -1115,7 +1152,7 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
                             str(choice.get("value"))
                             for field in field_info(question)
                             if field["datatype"]
-                            in {"object_checkboxes", "object_multiselect"}
+                            in {"object", "object_radio", "object_checkboxes", "object_multiselect"}
                             for choice in field["choices"]
                             if isinstance(choice, dict)
                             and choice.get("value") is not None

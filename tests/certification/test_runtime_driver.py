@@ -12,6 +12,7 @@ from runtime_driver import (
     question_source_file,
     run_scenario,
     serialized_collection_count,
+    serialized_object_choice,
     serialized_object_choices,
     serialized_path_cardinality,
     serialized_path_value,
@@ -506,6 +507,21 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertTrue(result["gathered"])
         self.assertFalse(result["there_is_another"])
 
+    def test_single_object_choice_is_serialized_from_current_variables(self):
+        court = {
+            "_class": "docassemble.AssemblyLine.al_general.ALCourt",
+            "instanceName": "all_courts[52]",
+            "name": "Essex Probate and Family Court",
+        }
+        result = serialized_object_choice(
+            "trial_court",
+            [{"label": court["name"], "value": "all_courts[52]"}],
+            "all_courts[52]",
+            {"all_courts": {"elements": [None] * 52 + [court]}},
+        )
+        self.assertEqual(result, court)
+        self.assertIsNot(result, court)
+
     def test_settrue_field_defaults_to_boolean_true(self):
         question = {
             "questionType": "settrue",
@@ -602,6 +618,26 @@ class RuntimeDriverTests(unittest.TestCase):
             },
         )
 
+    def test_object_radio_is_omitted_when_same_screen_builds_nested_object(self):
+        question = {
+            "event_list": ["children[0].gals[0].name.first"],
+            "fields": [
+                {
+                    "variable_name": "children[i].gals[j]",
+                    "datatype": "object_radio",
+                    "choices": [{"label": "Someone else", "value": "Someone else"}],
+                },
+                {
+                    "variable_name": "children[i].gals[j].name.first",
+                    "datatype": "text",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"children[0].gals[0].name.first": "Test"},
+        )
+
     def test_build_answer_omits_rows_beyond_modeled_count(self):
         question = {
             "fields": [
@@ -646,6 +682,33 @@ class RuntimeDriverTests(unittest.TestCase):
         }
         answer = build_answer(question, {"documented": False, "format": "wait"})
         self.assertEqual(answer, {"documented": False, "format": "wait"})
+
+    def test_unconditional_duplicate_field_survives_hidden_conditional_variant(self):
+        question = {
+            "fields": [
+                {"variable_name": "user_grade_school_completed", "datatype": "boolean"},
+                {"variable_name": "show_grade_detail", "datatype": "boolean"},
+                {
+                    "variable_name": "user_grade_school_completed",
+                    "datatype": "boolean",
+                    "show_if_var": "show_grade_detail",
+                    "show_if_val": "True",
+                },
+            ]
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {
+                    "user_grade_school_completed": True,
+                    "show_grade_detail": False,
+                },
+            ),
+            {
+                "user_grade_school_completed": True,
+                "show_grade_detail": False,
+            },
+        )
 
     def test_hide_if_field_is_kept_when_condition_does_not_match(self):
         question = {

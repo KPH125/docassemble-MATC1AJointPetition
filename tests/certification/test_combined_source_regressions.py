@@ -52,6 +52,19 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             self.assertIn(f"generic object: users[i].{collection}", shared_source)
             self.assertIn(f"users[i].{collection}[j]", shared_source)
 
+    def test_long_expense_questions_are_scoped_to_the_long_form_list(self):
+        long_source = (
+            FINANCIAL_ROOT / "data" / "questions" / "financial_statement_long.yml"
+        ).read_text()
+
+        self.assertNotIn("generic object: ALExpenseList", long_source)
+        self.assertEqual(
+            long_source.count("generic object: users[i].long_expense_list"),
+            6,
+        )
+        self.assertIn("users[i].long_expense_list[j].source", long_source)
+        self.assertIn("users[i].long_expense_list[j].value", long_source)
+
     def test_certification_snapshot_is_compact_and_bundle_evidence_precedes_generation(self):
         all_documents = documents("main_joint_petition.yml")
         snapshots = [

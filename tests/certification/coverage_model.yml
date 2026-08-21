@@ -643,25 +643,22 @@ modeled_paths:
       other_care_custody_proceedings: 1
 
   - name: agreement health insurance impasse
-    family: agreement_terminal
+    family: agreement
     overrides:
       separation_agreement_format: interview
       health_insurance_custom_terms_adult: false
-    expected_terminal_ids:
+    required_screen_ids:
       - health insurance no agreement exit
-    terminal_assertions: false
-    probe_events: []
 
   - name: agreement tax impasse
-    family: agreement_terminal
+    family: agreement
     overrides:
       separation_agreement_format: interview
       health_insurance_custom_terms_adult: true
       taxes_custom_terms: false
-    expected_terminal_ids:
+      taxes_file_separately: false
+    required_screen_ids:
       - taxes no agreement exit
-    terminal_assertions: false
-    probe_events: []
 
 cardinality_classes:
   users: [2]
