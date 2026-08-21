@@ -1,4 +1,174 @@
 # A screen may be listed here only by its exact source-file and YAML-block
 # coordinate, with source-backed proof that the combined parent cannot call it.
-# Empty reasons fail the coverage audit.
-proven_unreachable: {}
+# Empty reasons, stale coordinates, and classifications contradicted by runtime
+# observation fail the coverage audit.
+_reasons:
+  parent_shared_data: &parent_shared_data >-
+    The combined parent gathers or assigns this shared party, child, case, or court
+    value before invoking the child interview order, so Docassemble cannot seek this
+    child question block.
+  parent_packet_flow: &parent_packet_flow >-
+    The combined parent calls the child's core order but owns the packet review,
+    signing, preview, and download flow; it never calls this standalone child screen.
+  standalone_wrapper: &standalone_wrapper >-
+    This screen is called only by the child's standalone wrapper, which the combined
+    entrypoint does not include or invoke.
+  shadowed_question: &shadowed_question >-
+    A later active question block satisfies the same sought variable in the included
+    source, so Docassemble selects that block and cannot reach this older alternative.
+  commented_branch: &commented_branch >-
+    The child completion method or order comments out this branch or marks it unused,
+    and the combined parent has no independent call to it.
+  ask_number_list: &ask_number_list >-
+    This list is configured with ask_number=True and gathered through target_number,
+    so its one-at-a-time there_is_another question is not part of the active path.
+  selected_type_list: &selected_type_list >-
+    The active list path uses selected_types and move_checks_to_list, which fixes and
+    gathers its elements; the legacy one-at-a-time list question cannot be sought.
+  affidavit_body_reuse: &affidavit_body_reuse >-
+    The active affidavit-body income screen already gathers this same household
+    variable before the supplement order starts, so the duplicate supplement block
+    cannot be sought.
+  not_in_active_order: &not_in_active_order >-
+    The current child section order seeks the replacement list or section variables
+    and contains no reference to this legacy screen's continue field.
+  fixed_fee_defaults: &fixed_fee_defaults >-
+    set_indigency_defaults fixes the supported divorce filing fee and the affidavit
+    order seeks those fee variables directly, so the general fee-selection screen is
+    already satisfied.
+
+proven_unreachable:
+  # Affidavit of Indigency: the combined parent starts at ask_affidavit_questions
+  # after fixing case, parties, fees, and docket data.
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#2b5cb98539a4596c": *parent_packet_flow
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#3ecad6457d8dcd58": *fixed_fee_defaults
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#63c96bf68b827d30": *standalone_wrapper
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#743064ddc50a0468": *standalone_wrapper
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#79e947c3029ec2b0": *parent_shared_data
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#8b32f69165e536c3": *standalone_wrapper
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#9e1a905151943fb9": *parent_shared_data
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#c6186a178fa851fc": *parent_shared_data
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#d295fe3b1595cd34": >-
+    indigency_supplement_intro is defined by this block but is never sought by the
+    affidavit legal logic or supplement order used by the combined parent.
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#fd3c43d524265e5a": *parent_shared_data
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_body.yml#fdee8bc2c464a26a": *standalone_wrapper
+
+  # The supplement reuses values already collected by the affidavit body and
+  # bypasses its standalone review/preview controls.
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#0562107e2af9ee0c": *affidavit_body_reuse
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#26c024bb686e8720": *parent_packet_flow
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#2dadcb949fb98b21": *affidavit_body_reuse
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#4619f173eaf49ff8": *parent_packet_flow
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#48d6bed6d9d4ceea": *parent_packet_flow
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#63f87c34764de71e": *ask_number_list
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#6af1aac5680f6724": *parent_packet_flow
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#6b3ddb2a986a649e": *selected_type_list
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#880cb6b67cbd7851": *parent_packet_flow
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#8a0a36109f601a7f": *parent_shared_data
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#8c4675153e5e3bca": *selected_type_list
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#bcfdd8b49f9866b3": *parent_packet_flow
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#e20f7408ab0b0633": *parent_shared_data
+  "docassemble.ALAffidavitOfIndigency:data/questions/review_page.yml#c45b7a638cda4466": *standalone_wrapper
+
+  # Parent-owned shared intake and optional ODR-only review.
+  "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#361d87038f35c07b": *shadowed_question
+  "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#553a59ba864ffc79": >-
+    This event is only for the ODR import entry mode; the combined entrypoint has no
+    ODR import invocation or navigation link.
+  "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#984bf710c7539aed": *shadowed_question
+  "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#abd13045420afff7": *shadowed_question
+  "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#e6397238be2ef1b5": *shadowed_question
+
+  # The late-certificate motion contributes an attachment to the parent packet;
+  # its standalone intake and closing order are not called.
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#0da13fd8f45d5dcb": *parent_shared_data
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#1bad733c510b7692": *parent_shared_data
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#45f5f74aef50e882": *parent_packet_flow
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#49443cfa165857cb": *parent_packet_flow
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#5299f2fc0e83396f": *parent_packet_flow
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#575d57852c0b29e8": *standalone_wrapper
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#8e4b713758415763": *parent_packet_flow
+  "docassemble.MATC1ADivorceJointPetition:data/questions/joint-motion-to-file-marriage-certificate-late.yml#ae51796e43d670d1": *parent_packet_flow
+
+  # Child Support Guidelines worksheet shared setup and standalone closing.
+  "docassemble.MATCCSGWorksheet:data/questions/child_support_guidelines_worksheet_core.yml#0a006fdd52b9d629": *parent_shared_data
+  "docassemble.MATCCSGWorksheet:data/questions/child_support_guidelines_worksheet_core.yml#86fda9848bd8873c": *parent_shared_data
+  "docassemble.MATCCSGWorksheet:data/questions/child_support_guidelines_worksheet_core.yml#99a807fe38dbbdc6": *parent_shared_data
+  "docassemble.MATCCSGWorksheet:data/questions/child_support_guidelines_worksheet_core.yml#c9c120378700af5b": *parent_packet_flow
+  "docassemble.MATCCSGWorksheet:data/questions/child_support_guidelines_worksheet_core.yml#ddfabc90dbd0aebd": *parent_packet_flow
+
+  # Care/custody legacy alternatives, commented attorney-per-case branch, and
+  # standalone signing/download screens.
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#05ecfc224445ea7f": *commented_branch
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#099a26e647063033": *shadowed_question
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#0cc03cd5f72c5347": *commented_branch
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#142f394823f1ef45": *shadowed_question
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#184fc5a0b573b8e7": *parent_packet_flow
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#4463c5deeba823fd": *parent_shared_data
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#599fa389391f3788": *parent_shared_data
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#840a5c9f2c836121": *parent_packet_flow
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#88085fb1407f2cd2": *commented_branch
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#8a53d8fb84080a01": *shadowed_question
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#90fd2da769067186": *commented_branch
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#a8e707f227afb88f": *commented_branch
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#ae4ff753c5e9d368": *commented_branch
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#af007b2f6b7c3b01": *parent_shared_data
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#c26ccc71d5779408": *shadowed_question
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#d33caca480cccbb0": *parent_packet_flow
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#f1f17a56f7bcf904": *parent_shared_data
+  "docassemble.MATCChildCareOrCustodyDisclosureAffidavit:data/questions/affidavit_disclosing_care_or_custody.yml#fdc5eca78c571e91": *parent_packet_flow
+
+  # Financial child setup is preselected by financial_statement_scope. Legacy
+  # monolithic screens are not referenced by the current section orders.
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement.yml#e66edefc83337d8d": *parent_shared_data
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_long.yml#0de307d26492d8eb": *not_in_active_order
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_long.yml#368765e0433375d7": *not_in_active_order
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_long.yml#f00d2c2a79e08249": *not_in_active_order
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#0f0006571e889c5c": *not_in_active_order
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#4020aacb59218b84": *not_in_active_order
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#4b5f276d09a26cdf": *parent_shared_data
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#4e075e50ff1521d2": *parent_packet_flow
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#545c9208ba8d3a73": *parent_shared_data
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#824c0700b27e66fc": *not_in_active_order
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#e8ba96f8a7c7b645": *parent_shared_data
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#f5fd95b133a5b45c": *parent_shared_data
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_shared.yml#f9963ec4a5881e99": *parent_shared_data
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_short.yml#0742d74ad131b22b": *not_in_active_order
+  "docassemble.MATCFinancialStatement:data/questions/financial_statement_short.yml#dfb337ffb6f24598": *not_in_active_order
+
+  # The parent-owned motion order seeks each concrete field directly; the child
+  # interview's grouped intake screens therefore cannot be selected.
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#03ddc5cc083ca59d": *shadowed_question
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#05cee6ec29731513": *shadowed_question
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#0df0727b775fff15": *shadowed_question
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#1becf406ad2e8afb": *parent_shared_data
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#239d6aa1fb8d4d44": *parent_shared_data
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#638aa74f3e072f2a": *shadowed_question
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#6d5b3f28dc5a56db": *shadowed_question
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#75437a841b41d7fe": *shadowed_question
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#9f317ea9bb4ab07c": *shadowed_question
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#b2144ad4373912b9": *parent_shared_data
+  "docassemble.MATCMotionToAmend:data/questions/motion_to_amend.yml#c2ffb8e65371cc36": *shadowed_question
+
+  # Separation agreement shared intake and standalone closing.
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#0260fe781935845f": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#3664c572c0c899ea": *parent_packet_flow
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#3d589c5a75083b18": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#3d749219f47e43b9": *parent_packet_flow
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#3f6baef7308b8097": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#50a25fc1cbfd99ab": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#793184e3d6263830": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#a34dedb78eab9f43": *parent_packet_flow
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#a36e929349389e12": *standalone_wrapper
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#b28f9092bc99ea46": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#e0275884cf2e978b": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#f1b5820bf2327706": *parent_packet_flow
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#f33e860fad6e7f3a": *parent_shared_data
+
+  # Findings shared defaults and standalone closing.
+  "docassemble.matcfindingsanddeterminations:data/questions/cjd_305_findings_determinations_core.yml#5ff3463316f37876": *parent_shared_data
+  "docassemble.matcfindingsanddeterminations:data/questions/cjd_305_findings_determinations_core.yml#860740d378e0721a": *parent_packet_flow
+  "docassemble.matcfindingsanddeterminations:data/questions/cjd_305_findings_determinations_core.yml#8c299406d504b5b2": *parent_packet_flow
+  "docassemble.matcfindingsanddeterminations:data/questions/cjd_305_findings_determinations_core.yml#be89ca8a15d0ab30": *parent_shared_data
+  "docassemble.matcfindingsanddeterminations:data/questions/cjd_305_findings_determinations_core.yml#ff12363cf1c9c640": *parent_shared_data
