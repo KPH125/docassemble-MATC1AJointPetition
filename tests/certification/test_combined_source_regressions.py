@@ -6,6 +6,7 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 QUESTION_ROOT = HERE.parents[1] / "docassemble" / "MATC1ADivorceJointPetition" / "data" / "questions"
+FINANCIAL_ROOT = HERE.parents[2] / "docassemble-MATCFinancialStatement" / "docassemble" / "MATCFinancialStatement"
 
 
 def documents(filename: str) -> list[dict]:
@@ -24,6 +25,17 @@ def identified_code(filename: str, block_id: str) -> str:
 
 
 class CombinedSourceRegressionTests(unittest.TestCase):
+    def test_financial_lists_do_not_store_owning_user_backreferences(self):
+        question_source = "\n".join(
+            path.read_text()
+            for path in (FINANCIAL_ROOT / "data" / "questions").glob("*.yml")
+        )
+        helper_source = (FINANCIAL_ROOT / "financial_statement_helpers.py").read_text()
+
+        self.assertNotIn(".statement_user = users[i]", question_source)
+        self.assertNotIn("x.statement_user", question_source)
+        self.assertIn("def financial_statement_list_user(items):", helper_source)
+
     def test_certification_snapshot_is_compact_and_bundle_evidence_precedes_generation(self):
         all_documents = documents("main_joint_petition.yml")
         snapshots = [
