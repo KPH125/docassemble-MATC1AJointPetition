@@ -19,7 +19,7 @@
     {
       "repository": "SuffolkLITLab/docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
       "pull_request": 3,
-      "sha": "ef8c913bf1c9d585fa704be7934c599afeb8df9e",
+      "sha": "9c6592941af434c392db172dc3b26670f1fe8960",
       "reason": "Fix API rendering of the multi-child custody checkbox question"
     }
   ],
@@ -66,7 +66,7 @@
     "docassemble.MATCChildCareOrCustodyDisclosureAffidavit": {
       "repository": "SuffolkLITLab/docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
       "directory": "docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
-      "sha": "ef8c913bf1c9d585fa704be7934c599afeb8df9e"
+      "sha": "9c6592941af434c392db172dc3b26670f1fe8960"
     },
     "docassemble.MATCCSGWorksheet": {
       "repository": "SuffolkLITLab/docassemble-MATCCSGWorksheet",

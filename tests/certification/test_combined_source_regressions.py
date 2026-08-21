@@ -77,6 +77,7 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         ]
         self.assertEqual(len(normalization_blocks), 1)
         normalization = normalization_blocks[0]
+        self.assertIn('del conditional_document.cache.enabled', normalization)
         for document_name in (
             "motion_to_amend_attachment",
             "r408_attachment",

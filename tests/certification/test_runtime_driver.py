@@ -482,6 +482,34 @@ class RuntimeDriverTests(unittest.TestCase):
         answer = build_answer(question, {"documented": False, "format": "wait"})
         self.assertEqual(answer, {"documented": False, "format": "wait"})
 
+    def test_hide_if_field_is_kept_when_condition_does_not_match(self):
+        question = {
+            "fields": [
+                {
+                    "variable_name": "case_status",
+                    "datatype": "radio",
+                    "choices": [
+                        {"label": "Restraining order", "value": "restraining"}
+                    ],
+                },
+                {
+                    "variable_name": "user_role",
+                    "datatype": "radio",
+                    "choices": [{"label": "Party", "value": "party"}],
+                    "show_if_sign": 0,
+                    "show_if_var": "case_status",
+                    "show_if_val": "adoption",
+                },
+            ]
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {"case_status": "restraining", "user_role": "party"},
+            ),
+            {"case_status": "restraining", "user_role": "party"},
+        )
+
     def test_expression_show_if_does_not_hide_server_visible_fields(self):
         question = {
             "fields": [

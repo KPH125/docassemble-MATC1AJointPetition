@@ -200,6 +200,8 @@ code: |
       a_divorce_agreement_attachment,
   ):
     conditional_document.always_enabled = False
+    if hasattr(conditional_document.cache, "enabled"):
+      del conditional_document.cache.enabled
   combined_bundle_documents_normalized = True
 ---
 id: existing 1B action screener

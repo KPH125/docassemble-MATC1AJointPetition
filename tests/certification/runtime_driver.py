@@ -330,6 +330,7 @@ def field_info(question: dict[str, Any]) -> list[dict[str, Any]]:
                 "inputtype": field.get("inputtype") or field.get("input type") or datatype,
                 "choices": field.get("choices") or [],
                 "required": field.get("required", True),
+                "show_if_sign": field.get("show_if_sign", 1),
                 "show_if_var": field.get("show_if_var") or "",
                 "show_if_val": field.get("show_if_val"),
             }
@@ -601,7 +602,12 @@ def build_answer(
         send_name = raw if raw.startswith(("x.", "x[")) else resolved
         controller_value = answer.get(controller)
         expected = field.get("show_if_val")
-        visible = show_if_matches(controller_value, expected)
+        condition_matches = show_if_matches(controller_value, expected)
+        visible = (
+            condition_matches
+            if field.get("show_if_sign", 1)
+            else not condition_matches
+        )
         (visible_names if visible else hidden_names).add(send_name)
     for send_name in hidden_names - visible_names:
         # POST /api/session assigns variables directly; it does not execute a
