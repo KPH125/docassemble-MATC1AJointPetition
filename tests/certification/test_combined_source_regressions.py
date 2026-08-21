@@ -250,6 +250,22 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         )
         self.assertNotIn("children.target_number = len(children)", agreement_branch)
 
+    def test_combined_parent_sets_signer_matrix_at_point_of_use(self):
+        mandatory_orders = [
+            str(document.get("code", ""))
+            for document in documents("main_joint_petition.yml")
+            if document.get("mandatory") is True
+            and "basic_questions_signature_flow" in str(document.get("code", ""))
+        ]
+        self.assertEqual(len(mandatory_orders), 1)
+        order = mandatory_orders[0]
+        self.assertIn("'attorneys[0].signature' if users[0].has_attorney", order)
+        self.assertIn("'attorneys[1].signature' if users[1].has_attorney", order)
+        self.assertLess(
+            order.index("signature_fields = ["),
+            order.index("basic_questions_signature_flow"),
+        )
+
     def test_combined_motion_order_preserves_user_object_identity(self):
         joint_order = identified_code("main_joint_petition.yml", "joint petition interview order")
         combined_order = identified_code(

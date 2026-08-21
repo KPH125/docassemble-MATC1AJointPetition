@@ -764,6 +764,14 @@ code: |
       },
   )
   divorcejointpetition_preview_question
+  # Several included child interviews define the global signature_fields
+  # variable. Set the combined packet's signer matrix at the point of use so
+  # a child's standalone default cannot make represented spouses sign instead
+  # of their attorneys.
+  signature_fields = [
+      'attorneys[0].signature' if users[0].has_attorney else 'users[0].signature',
+      'attorneys[1].signature' if users[1].has_attorney else 'users[1].signature',
+  ]
   basic_questions_signature_flow
 
   combined_bundle_final_packet_normalized

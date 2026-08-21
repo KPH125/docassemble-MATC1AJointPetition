@@ -887,9 +887,21 @@ def run_scenario(client: Client, scenario: dict[str, Any], limits: Limits) -> di
             if is_terminal(question):
                 result["terminal_id"] = qid
                 expected_terminal_ids = set(scenario.get("expected_terminal_ids", []))
+                missing_required_screens = sorted(
+                    set(scenario.get("required_screen_ids", []))
+                    - set(result["seen_screen_ids"])
+                )
+                forbidden_screens_seen = sorted(
+                    set(scenario.get("forbidden_screen_ids", []))
+                    & set(result["seen_screen_ids"])
+                )
                 if expected_terminal_ids and qid not in expected_terminal_ids:
                     result["failure"] = "unexpected_terminal"
                     result["expected_terminal_ids"] = sorted(expected_terminal_ids)
+                elif missing_required_screens or forbidden_screens_seen:
+                    result["failure"] = "screen_expectation_mismatch"
+                    result["missing_required_screen_ids"] = missing_required_screens
+                    result["forbidden_screen_ids_seen"] = forbidden_screens_seen
                 elif not scenario.get("terminal_assertions", True):
                     # Some modeled branches intentionally end on a child
                     # interview's explanatory dead end. Reaching the declared

@@ -245,6 +245,33 @@ class RuntimeDriverTests(unittest.TestCase):
         self.assertEqual(result["terminal_id"], "taxes no agreement exit")
         self.assertNotIn("terminal_evidence", result)
 
+    def test_route_screen_expectations_reject_wrong_signer(self):
+        wrong_signer = {
+            "id": "sign party A",
+            "questionType": "signature",
+            "fields": [
+                {"variable_name": "users[0].signature", "datatype": "signature"}
+            ],
+        }
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "required_screen_ids": ["sign attorney for party A"],
+            "forbidden_screen_ids": ["sign party A"],
+        }
+
+        result = run_scenario(FakeClient([wrong_signer, terminal]), scenario, limits())
+
+        self.assertEqual(result["failure"], "screen_expectation_mismatch")
+        self.assertEqual(
+            result["missing_required_screen_ids"], ["sign attorney for party A"]
+        )
+        self.assertEqual(result["forbidden_screen_ids_seen"], ["sign party A"])
+
     def test_bundle_membership_mismatch_fails_terminal(self):
         terminal = {
             "id": "download divorce joint petition",

@@ -192,17 +192,35 @@ modeled_paths:
     overrides:
       users[0].has_attorney: true
       users[1].has_attorney: true
+    required_screen_ids:
+      - sign attorney for party A
+      - sign attorney for party B
+    forbidden_screen_ids:
+      - sign party A
+      - sign party B
 
   - name: only party A represented
     family: counsel
     overrides:
       users[0].has_attorney: true
+    required_screen_ids:
+      - sign attorney for party A
+      - sign party B
+    forbidden_screen_ids:
+      - sign party A
+      - sign attorney for party B
 
   - name: only party B represented
     family: counsel
     overrides:
       users[1].has_attorney: true
       who_lives_at_marital_home: party_b
+    required_screen_ids:
+      - sign party A
+      - sign attorney for party B
+    forbidden_screen_ids:
+      - sign attorney for party A
+      - sign party B
 
   - name: no agreement and unwilling to negotiate
     family: agreement

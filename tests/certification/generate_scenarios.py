@@ -159,6 +159,8 @@ def generate(model: dict, output: Path) -> list[Path]:
             "expected_terminal_ids": path.get(
                 "expected_terminal_ids", model.get("default_terminal_ids", [])
             ),
+            "required_screen_ids": path.get("required_screen_ids", []),
+            "forbidden_screen_ids": path.get("forbidden_screen_ids", []),
             "terminal_assertions": terminal_assertions,
             "expected_terminal_evidence": path.get(
                 "expected_terminal_evidence",
