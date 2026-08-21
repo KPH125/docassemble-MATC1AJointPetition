@@ -155,7 +155,7 @@ jobs:
       - name: Install disposable runtime profiler
         run: |
           docker exec "$DA_CONTAINER" bash -lc \
-            'python_bin=$(find /usr/share/docassemble -maxdepth 3 -path "*/local3.*/bin/python" -print -quit); test -n "$python_bin"; "$python_bin" -m pip install py-spy==0.4.1'
+            'python_bin=$(find /usr/share/docassemble -maxdepth 3 -path "*/local3.*/bin/python" -print -quit); test -n "$python_bin"; "$python_bin" -m pip install py-spy==0.4.2'
 
       - name: Run every modeled path
         id: crawl
