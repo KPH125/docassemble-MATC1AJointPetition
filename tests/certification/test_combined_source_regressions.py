@@ -65,7 +65,16 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         final_normalization = identified_code(
             "main_joint_petition.yml", "combined bundle final packet normalization"
         )
-        self.assertIn("del conditional_document.cache.enabled", final_normalization)
+        self.assertIn(
+            "conditional_document.cache.enabled = bool(final_enabled)",
+            final_normalization,
+        )
+        self.assertNotIn("del conditional_document.cache.enabled", final_normalization)
+        self.assertIn(
+            "a_divorce_agreement_Post_interview_instructions,",
+            final_normalization,
+        )
+        self.assertIn("include_separation_agreement,", final_normalization)
         self.assertIn(
             "combined_bundle_final_packet_normalized = True", final_normalization
         )
@@ -173,6 +182,27 @@ class CombinedSourceRegressionTests(unittest.TestCase):
                 "children[i].birthdate",
             },
         )
+
+        petition_order = identified_code(
+            "divorce_joint_petition.yml", "interview_order_divorcejointpetition"
+        )
+        self.assertLess(
+            petition_order.index(
+                "children.target_number = children_of_marriage_number"
+            ),
+            petition_order.index("children.gather()"),
+        )
+        combined_order = identified_code(
+            "main_joint_petition.yml", "joint petition interview order"
+        )
+        agreement_branch = combined_order.split(
+            "if include_separation_agreement:", 1
+        )[1]
+        self.assertIn(
+            "children.target_number = children_of_marriage_number",
+            agreement_branch,
+        )
+        self.assertNotIn("children.target_number = len(children)", agreement_branch)
 
     def test_combined_motion_order_preserves_user_object_identity(self):
         joint_order = identified_code("main_joint_petition.yml", "joint petition interview order")
