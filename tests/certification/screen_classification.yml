@@ -57,13 +57,27 @@ proven_unreachable:
   # The supplement reuses values already collected by the affidavit body and
   # bypasses its standalone review/preview controls.
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#0562107e2af9ee0c": *affidavit_body_reuse
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#260412ec4d7156d3": >-
+    The immediately preceding income-source-amount block gathers source, cadence,
+    and value for the same concrete list item. The active selected-types list seeks
+    source first, so that superset block fills cadence and value before this narrower
+    duplicate could be sought; runtime selected fingerprint d10c302aa92ec23b.
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#26c024bb686e8720": *parent_packet_flow
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#2dadcb949fb98b21": *affidavit_body_reuse
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#30bbad777b791552": >-
+    The combined include graph gives the later financial-statement ALExpenseList
+    questions active precedence for users[0].expenses: runtime selected
+    fs_expense_sources (9279c714a97ebe10), whose matching fs_expense_item
+    (686ecaa425146529) gathers each selected item's source, value, and cadence.
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#4619f173eaf49ff8": *parent_packet_flow
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#48d6bed6d9d4ceea": *parent_packet_flow
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#63f87c34764de71e": *ask_number_list
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#6af1aac5680f6724": *parent_packet_flow
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#6b3ddb2a986a649e": *selected_type_list
+  "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#7873d9beecc46fab": >-
+    The supplement order seeks users[0].expenses.gathered through the selected-types
+    list flow and never references the keyed users[0].expenses["other"] fields; the
+    list creates integer-indexed items, so this legacy keyed-item screen is not sought.
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#880cb6b67cbd7851": *parent_packet_flow
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#8a0a36109f601a7f": *parent_shared_data
   "docassemble.ALAffidavitOfIndigency:data/questions/affidavit_of_indigency_supplement_body.yml#8c4675153e5e3bca": *selected_type_list
@@ -73,6 +87,7 @@ proven_unreachable:
 
   # Parent-owned shared intake and optional ODR-only review.
   "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#361d87038f35c07b": *shadowed_question
+  "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#45f5f74aef50e882": *shadowed_question
   "docassemble.MATC1ADivorceJointPetition:data/questions/divorce_joint_petition.yml#553a59ba864ffc79": >-
     This event is only for the ODR import entry mode; the combined entrypoint has no
     ODR import invocation or navigation link.
@@ -159,6 +174,7 @@ proven_unreachable:
   "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#3f6baef7308b8097": *parent_shared_data
   "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#50a25fc1cbfd99ab": *parent_shared_data
   "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#793184e3d6263830": *parent_shared_data
+  "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#99c8c7fc7f50dcd6": *shadowed_question
   "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#a34dedb78eab9f43": *parent_packet_flow
   "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#a36e929349389e12": *standalone_wrapper
   "docassemble.MATCSeparationAgreement:data/questions/separation_agreement_core.yml#b28f9092bc99ea46": *parent_shared_data
