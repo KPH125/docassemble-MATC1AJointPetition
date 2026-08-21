@@ -313,12 +313,16 @@ modeled_paths:
     overrides:
       financial_statement_scope: spouse_1_only
       users[0].gross_annual_income: 74999
+      users[0].has_self_employment_income: false
+      users[0].has_rental_income: false
 
   - name: only party B long financial statement
     family: financial
     overrides:
       financial_statement_scope: spouse_2_only
       users[1].gross_annual_income: 75000
+      users[1].has_self_employment_income: false
+      users[1].has_rental_income: false
 
   - name: both short financial statements
     family: financial
@@ -326,6 +330,10 @@ modeled_paths:
       financial_statement_scope: both
       users[0].gross_annual_income: 0
       users[1].gross_annual_income: 74999
+      users[0].has_self_employment_income: false
+      users[0].has_rental_income: false
+      users[1].has_self_employment_income: false
+      users[1].has_rental_income: false
       users[0].motor_vehicles.there_are_any: true
       users[0].pensions.there_are_any: true
       users[0].other_assets.there_are_any: true
@@ -342,6 +350,10 @@ modeled_paths:
       financial_statement_scope: both
       users[0].gross_annual_income: 75001
       users[1].gross_annual_income: 75001
+      users[0].has_self_employment_income: false
+      users[0].has_rental_income: false
+      users[1].has_self_employment_income: false
+      users[1].has_rental_income: false
       users[0].motor_vehicles.there_are_any: true
       users[0].motor_vehicles.there_is_another:
         $sequence: [true, false]

@@ -34,6 +34,26 @@ class ScenarioGenerationTests(unittest.TestCase):
                 self.assertTrue(scenario["expected_bundle_documents"])
                 self.assertTrue(scenario["probe_events"])
 
+    def test_financial_paths_explicitly_choose_schedule_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = generate(self.model, Path(directory))
+            for path in paths:
+                scenario = json.loads(path.read_text())
+                if scenario["family"] != "financial":
+                    continue
+                variables = scenario["variables"]
+                scope = variables["financial_statement_scope"]
+                selected_indexes = []
+                if scope in ("spouse_1_only", "both"):
+                    selected_indexes.append(0)
+                if scope in ("spouse_2_only", "both"):
+                    selected_indexes.append(1)
+                for index in selected_indexes:
+                    self.assertIn(
+                        f"users[{index}].has_self_employment_income", variables
+                    )
+                    self.assertIn(f"users[{index}].has_rental_income", variables)
+
     def test_model_loader_rejects_duplicate_keys(self):
         with tempfile.TemporaryDirectory() as directory:
             model_path = Path(directory) / "ambiguous.yml"
