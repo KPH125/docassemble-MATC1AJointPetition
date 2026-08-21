@@ -8,6 +8,7 @@ from runtime_driver import (
     Limits,
     build_answer,
     field_within_cardinalities,
+    question_variable,
     question_source_file,
     run_scenario,
     serialized_collection_count,
@@ -93,6 +94,50 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_question_variable_prefers_concrete_event_for_generic_screen(self):
+        question = {
+            "question_variable_name": "users[i].income_schedule_triggers",
+            "event_list": ["users[1].income_schedule_triggers"],
+        }
+
+        self.assertEqual(
+            question_variable(question),
+            "users[1].income_schedule_triggers",
+        )
+
+    def test_generic_screen_uses_modeled_values_for_concrete_person(self):
+        question = {
+            "question_variable_name": "users[i].income_schedule_triggers",
+            "event_list": ["users[1].income_schedule_triggers"],
+            "fields": [
+                {
+                    "variable_name": "users[i].has_self_employment_income",
+                    "datatype": "boolean",
+                    "inputtype": "yesnoradio",
+                },
+                {
+                    "variable_name": "users[i].has_rental_income",
+                    "datatype": "boolean",
+                    "inputtype": "yesnoradio",
+                },
+            ],
+        }
+
+        self.assertEqual(
+            build_answer(
+                question,
+                {
+                    "users[1].has_self_employment_income": False,
+                    "users[1].has_rental_income": False,
+                },
+            ),
+            {
+                "users[1].has_self_employment_income": False,
+                "users[1].has_rental_income": False,
+                "users[1].income_schedule_triggers": True,
+            },
+        )
+
     def test_client_uses_valid_snapshot_event_identifier(self):
         client = Client("http://server", "key", 10)
         client.http = Mock()

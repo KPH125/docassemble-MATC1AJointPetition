@@ -71,13 +71,22 @@ def question_variable(question: dict[str, Any]) -> str:
         or question.get("continueButtonField")
         or ""
     )
+    events = question.get("event_list") or []
+    # Some reusable screens report a literal ``users[i]`` question variable
+    # while their event list contains the concrete iterator value. Prefer that
+    # concrete event so all fields on the screen resolve to the modeled person.
+    if direct and "[i]" in direct:
+        normalized_direct = normalized_variable(direct)
+        for event in events:
+            event_name = str(event)
+            if "[i]" not in event_name and normalized_variable(event_name) == normalized_direct:
+                return event_name
     if direct:
         return direct
     # For reusable questions whose source fields contain ``[i]``, the API
     # exposes the concrete variable being sought in ``event_list`` even when
     # it omits question_variable_name. That concrete name is authoritative for
     # resolving the iterator before submitting the answer.
-    events = question.get("event_list") or []
     return str(events[0]) if events else ""
 
 
