@@ -7,14 +7,6 @@ on:
         description: Full-match regex for modeled scenario names; leave blank for all paths
         required: false
         default: ''
-  push:
-    branches:
-      - codex/exhaustive-path-certification
-    paths:
-      - '.github/workflows/certify-combined-interview.yml'
-      - 'docassemble/**'
-      - 'setup.py'
-      - 'tests/certification/**'
 
 permissions:
   contents: read
