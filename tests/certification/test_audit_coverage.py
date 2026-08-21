@@ -59,6 +59,24 @@ class CoverageAuditTests(unittest.TestCase):
         )
         self.assertTrue(report["passed"])
 
+    def test_runtime_observation_contradicts_unreachable_classification(self):
+        catalog = {"screens": [{"id": "one"}]}
+        ledger = {
+            "results": [{
+                "name": "path",
+                "status": "pass",
+                "seen_screen_ids": ["one"],
+            }]
+        }
+        report = audit(
+            catalog,
+            ledger,
+            {"proven_unreachable": {"id:one": "Incorrectly classified."}},
+        )
+
+        self.assertFalse(report["passed"])
+        self.assertEqual(report["observed_exclusions"], ["id:one"])
+
     def test_failed_runtime_path_fails_even_with_full_screen_coverage(self):
         catalog = {"screens": [{"id": "one"}]}
         ledger = {

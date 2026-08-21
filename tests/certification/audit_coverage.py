@@ -98,6 +98,7 @@ def audit(
     excluded = set(exclusions)
     missing = declared - observed_coordinates - excluded
     stale_exclusions = excluded - declared
+    observed_exclusions = excluded & observed_coordinates
     catalog_by_coordinate = {
         screen_coordinate(screen): screen
         for screen in catalog["screens"]
@@ -149,6 +150,7 @@ def audit(
     passed = (
         not missing
         and not stale_exclusions
+        and not observed_exclusions
         and not failed_paths
         and not unsupported_exclusions
         and not missing_paths
@@ -170,6 +172,7 @@ def audit(
         "missing_local_screens": missing_screens,
         "missing_local_screen_ids": sorted({screen["id"] for screen in missing_screens}),
         "stale_exclusions": sorted(stale_exclusions),
+        "observed_exclusions": sorted(observed_exclusions),
         "unsupported_exclusions": sorted(unsupported_exclusions),
         "missing_modeled_paths": sorted(missing_paths),
         "unexpected_runtime_paths": sorted(unexpected_paths),

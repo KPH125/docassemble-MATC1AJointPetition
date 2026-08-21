@@ -25,8 +25,9 @@ of example runs.
   be excluded, and every exclusion requires a source-backed reason.
 - `audit_coverage.py` compares runtime evidence with the static denominator and
   fails if any exact source screen is missing, an exclusion is stale or
-  unsupported, a modeled path is absent, a path fails, a generated packet has
-  a missing or extra document, or a path reaches the wrong terminal outcome.
+  unsupported or contradicted by runtime observation, a modeled path is absent,
+  a path fails, a generated packet has a missing or extra document, or a path
+  reaches the wrong terminal outcome.
 
 Generated catalogs, scenarios, ledgers, logs, and runtime manifests are CI
 artifacts. They are intentionally not committed as hand-edited evidence.
