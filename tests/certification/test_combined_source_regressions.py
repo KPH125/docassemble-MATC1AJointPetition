@@ -57,6 +57,7 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             "main_joint_petition.yml", "combined bundle enabled document names"
         )
         self.assertIn("al_user_bundle.enabled_documents(refresh=True)", bundle_names)
+        self.assertIn("del conditional_document.cache.enabled", bundle_names)
         download_evidence = identified_code(
             "main_joint_petition.yml", "combined bundle download evidence"
         )

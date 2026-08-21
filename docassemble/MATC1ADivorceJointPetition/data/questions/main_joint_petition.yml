@@ -753,6 +753,31 @@ code: |
 ---
 id: combined bundle enabled document names
 code: |
+  # Included standalone packages can populate ALDocument enablement caches
+  # after the parent's initial normalization. Invalidate conditional packet
+  # state at the final enumeration point so this route's .enabled rules win.
+  for conditional_document in (
+      motion_to_amend_attachment,
+      r408_attachment,
+      affidavitofindigency_attachment,
+      child_care_or_custody_disclosure_affidavit_next_steps,
+      affidavit_of_care_or_custody_attachment,
+      ma_child_support_guidelines_worksheet_attachment,
+      cjd_305_attachment,
+      users[0].financial_statement_short_attachment,
+      users[0].financial_statement_long_attachment,
+      users[0].financial_statement_schedule_a_attachment,
+      users[0].financial_statement_schedule_b_attachment,
+      users[1].financial_statement_short_attachment,
+      users[1].financial_statement_long_attachment,
+      users[1].financial_statement_schedule_a_attachment,
+      users[1].financial_statement_schedule_b_attachment,
+      a_divorce_agreement_Post_interview_instructions,
+      a_divorce_agreement_attachment,
+  ):
+    conditional_document.always_enabled = False
+    if hasattr(conditional_document.cache, "enabled"):
+      del conditional_document.cache.enabled
   combined_bundle_enabled_document_names = [
     document.instanceName
     for document in al_user_bundle.enabled_documents(refresh=True)
