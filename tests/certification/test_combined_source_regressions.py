@@ -46,6 +46,10 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         self.assertEqual(len(order_documents), 1)
         order = str(order_documents[0]["code"])
         self.assertLess(
+            order.index("combined_bundle_final_packet_normalized"),
+            order.index("combined_bundle_enabled_document_names"),
+        )
+        self.assertLess(
             order.index("combined_bundle_enabled_document_names"),
             order.index("generate_downloads_with_docx_task"),
         )
@@ -57,7 +61,14 @@ class CombinedSourceRegressionTests(unittest.TestCase):
             "main_joint_petition.yml", "combined bundle enabled document names"
         )
         self.assertIn("al_user_bundle.enabled_documents(refresh=True)", bundle_names)
-        self.assertIn("del conditional_document.cache.enabled", bundle_names)
+        self.assertNotIn("del conditional_document.cache.enabled", bundle_names)
+        final_normalization = identified_code(
+            "main_joint_petition.yml", "combined bundle final packet normalization"
+        )
+        self.assertIn("del conditional_document.cache.enabled", final_normalization)
+        self.assertIn(
+            "combined_bundle_final_packet_normalized = True", final_normalization
+        )
         download_evidence = identified_code(
             "main_joint_petition.yml", "combined bundle download evidence"
         )

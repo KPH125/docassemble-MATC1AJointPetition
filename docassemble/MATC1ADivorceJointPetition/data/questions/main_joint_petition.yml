@@ -741,6 +741,7 @@ code: |
   divorcejointpetition_preview_question
   basic_questions_signature_flow
 
+  combined_bundle_final_packet_normalized
   combined_bundle_enabled_document_names
   if not defined("divorcejointpetition_downloads_ready"):
     if al_user_bundle.generate_downloads_with_docx_task.ready():
@@ -751,11 +752,11 @@ code: |
   combined_bundle_download_evidence
   divorcejointpetition_download
 ---
-id: combined bundle enabled document names
+id: combined bundle final packet normalization
 code: |
   # Included standalone packages can populate ALDocument enablement caches
-  # after the parent's initial normalization. Invalidate conditional packet
-  # state at the final enumeration point so this route's .enabled rules win.
+  # after the parent's initial normalization. Invalidate that state once,
+  # immediately before final enumeration, so this route's .enabled rules win.
   for conditional_document in (
       motion_to_amend_attachment,
       r408_attachment,
@@ -778,6 +779,10 @@ code: |
     conditional_document.always_enabled = False
     if hasattr(conditional_document.cache, "enabled"):
       del conditional_document.cache.enabled
+  combined_bundle_final_packet_normalized = True
+---
+id: combined bundle enabled document names
+code: |
   combined_bundle_enabled_document_names = [
     document.instanceName
     for document in al_user_bundle.enabled_documents(refresh=True)
