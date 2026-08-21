@@ -495,10 +495,10 @@ hang_policy:
   max_steps: 500
   max_same_screen_consecutive: 3
   max_same_state_visits: 2
-  # Financial-statement PDF, DOCX, ZIP, and merged-PDF generation exceeded
-  # five minutes on the bounded CI runner without a worker crash. Keep a hard
-  # ten-minute ceiling so slow generation remains distinguishable from a hang.
-  download_task_timeout_seconds: 600
+  # The ten-document five-child packet completes in about 80 seconds on the
+  # bounded runner. Treat three minutes on the user-visible waiting screen as
+  # a failure while leaving more than twice that verified packet-build time.
+  download_task_timeout_seconds: 180
 
 pass_gate:
   - every statically declared local question id is classified as reached or proven unreachable
