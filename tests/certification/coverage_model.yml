@@ -116,6 +116,12 @@ modeled_paths:
   - name: baseline no children agreement later
     family: baseline
     overrides: {}
+    required_screen_ids:
+      - sign party A
+      - sign party B
+    forbidden_screen_ids:
+      - sign attorney for party A
+      - sign attorney for party B
 
   - name: legal marriage warning
     family: eligibility
