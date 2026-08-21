@@ -36,6 +36,16 @@ class CombinedSourceRegressionTests(unittest.TestCase):
         self.assertNotIn("x.statement_user", question_source)
         self.assertIn("def financial_statement_list_user(items):", helper_source)
 
+    def test_financial_nested_lists_use_distinct_item_index(self):
+        shared_source = (
+            FINANCIAL_ROOT / "data" / "questions" / "financial_statement_shared.yml"
+        ).read_text()
+
+        for collection in ("motor_vehicles", "pensions", "other_assets", "liabilities"):
+            self.assertNotIn(f"users[i].{collection}[i]", shared_source)
+            self.assertIn(f"generic object: users[i].{collection}", shared_source)
+            self.assertIn(f"users[i].{collection}[j]", shared_source)
+
     def test_certification_snapshot_is_compact_and_bundle_evidence_precedes_generation(self):
         all_documents = documents("main_joint_petition.yml")
         snapshots = [
