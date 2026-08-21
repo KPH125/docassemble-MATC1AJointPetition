@@ -92,6 +92,7 @@ jobs:
             --env DA_ADMIN_EMAIL="$DA_ADMIN_EMAIL" \
             --env DA_ADMIN_PASSWORD="$da_password" \
             --env DA_ADMIN_API_KEY="$da_key" \
+            --env DACELERYWORKERS=2 \
             --cap-add SYS_PTRACE \
             --memory 6gb \
             --stop-timeout 60 \

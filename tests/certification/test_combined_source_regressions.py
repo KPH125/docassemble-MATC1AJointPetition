@@ -7,6 +7,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 QUESTION_ROOT = HERE.parents[1] / "docassemble" / "MATC1ADivorceJointPetition" / "data" / "questions"
 FINANCIAL_ROOT = HERE.parents[2] / "docassemble-MATCFinancialStatement" / "docassemble" / "MATCFinancialStatement"
+CERTIFICATION_WORKFLOW = HERE.parents[1] / ".github" / "workflows" / "certify-combined-interview.yml"
 
 
 def documents(filename: str) -> list[dict]:
@@ -25,6 +26,11 @@ def identified_code(filename: str, block_id: str) -> str:
 
 
 class CombinedSourceRegressionTests(unittest.TestCase):
+    def test_disposable_runtime_serializes_general_celery_tasks(self):
+        workflow_source = CERTIFICATION_WORKFLOW.read_text()
+
+        self.assertIn("--env DACELERYWORKERS=2", workflow_source)
+
     def test_financial_lists_do_not_store_owning_user_backreferences(self):
         question_source = "\n".join(
             path.read_text()
