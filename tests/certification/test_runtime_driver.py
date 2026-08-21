@@ -10,6 +10,7 @@ from runtime_driver import (
     field_within_cardinalities,
     question_variable,
     question_source_file,
+    resolve_generic,
     run_scenario,
     serialized_collection_count,
     serialized_object_choice,
@@ -120,6 +121,61 @@ class FakeClient:
 
 
 class RuntimeDriverTests(unittest.TestCase):
+    def test_generic_object_field_resolves_to_nested_list(self):
+        self.assertEqual(
+            resolve_generic(
+                "x.selected_types",
+                "users[0].income_list.selected_types",
+            ),
+            "users[0].income_list.selected_types",
+        )
+
+    def test_generic_list_item_fields_resolve_to_same_nested_element(self):
+        sought = "users[1].expense_list[2].source"
+        self.assertEqual(
+            resolve_generic("x[i].source", sought),
+            "users[1].expense_list[2].source",
+        )
+        self.assertEqual(
+            resolve_generic("x[i].value", sought),
+            "users[1].expense_list[2].value",
+        )
+
+    def test_generic_nested_name_fields_keep_the_object_root(self):
+        sought = "other_parties[0].name.first"
+        self.assertEqual(
+            resolve_generic("x.name.last", sought),
+            "other_parties[0].name.last",
+        )
+
+    def test_generic_nested_checkboxes_use_the_concrete_scenario_value(self):
+        question = {
+            "event_list": ["users[0].income_list.selected_types"],
+            "fields": [
+                {
+                    "variable_name": "x.selected_types",
+                    "datatype": "checkboxes",
+                    "choices": [
+                        {
+                            "label": "Wages",
+                            "value": True,
+                            "variable_name": "x.selected_types['wages']",
+                        }
+                    ],
+                }
+            ],
+        }
+        answer = build_answer(
+            question,
+            {"users[0].income_list.selected_types": {"wages": True}},
+        )
+        self.assertEqual(set(answer), {"x.selected_types"})
+        self.assertEqual(
+            answer["x.selected_types"]["instanceName"],
+            "users[0].income_list.selected_types",
+        )
+        self.assertEqual(answer["x.selected_types"]["elements"], {"wages": True})
+
     def test_question_variable_prefers_concrete_event_for_generic_screen(self):
         question = {
             "question_variable_name": "users[i].income_schedule_triggers",

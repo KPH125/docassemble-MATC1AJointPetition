@@ -309,12 +309,18 @@ def field_within_cardinalities(
 def resolve_generic(variable: str, sought: str) -> str:
     if not sought:
         return variable
-    if variable.startswith(("x.", "x[")):
-        object_name = re.split(r"[.[]", sought, maxsplit=1)[0]
-        index_match = re.search(r"\[(\d+)\]", sought)
-        if variable.startswith("x[i]") and index_match:
-            return f"{object_name}[{index_match.group(1)}]{variable[4:]}"
-        return object_name + variable[1:]
+    if variable.startswith("x[i]"):
+        suffix = variable[4:]
+        suffix_depth = suffix.count(".")
+        if suffix_depth and sought.count(".") >= suffix_depth:
+            element_name = sought.rsplit(".", suffix_depth)[0]
+            return element_name + suffix
+    if variable.startswith("x."):
+        suffix = variable[1:]
+        suffix_depth = suffix.count(".")
+        if suffix_depth and sought.count(".") >= suffix_depth:
+            object_name = sought.rsplit(".", suffix_depth)[0]
+            return object_name + suffix
 
     resolved = variable
     for iterator in re.findall(r"\[([a-z])\]", variable):
