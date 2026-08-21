@@ -193,7 +193,7 @@ jobs:
             "ps -eo pid,%cpu,args --sort=-%cpu | awk '\$0 ~ /celery/ && \$0 !~ /awk/ {print \$1; exit}'")
           if [ -n "$worker_pid" ]; then
             docker exec "$DA_CONTAINER" bash -lc \
-              "pyspy_bin=\$(find /usr/share/docassemble -maxdepth 3 -path '*/local3.*/bin/py-spy' -print -quit); test -n \"\$pyspy_bin\"; timeout 30s \"\$pyspy_bin\" dump --native --pid '$worker_pid'" \
+              "pyspy_bin=\$(find /usr/share/docassemble -maxdepth 3 -path '*/local3.*/bin/py-spy' -print -quit); test -n \"\$pyspy_bin\"; timeout 30s \"\$pyspy_bin\" dump --pid '$worker_pid'" \
               > "$artifact_dir/worker-stack.txt" 2>&1 || true
           fi
 
