@@ -1,0 +1,1428 @@
+---
+initial: True
+code: |
+  # This flag must exist before included interviews evaluate their standalone
+  # mandatory blocks. The clinic parent owns navigation and completion.
+  clinic_workspace_mode = True
+  multi_user = True
+---
+include:
+  - main_joint_petition.yml
+  - temporary_orders_packet.yml
+---
+metadata:
+  title: Clinic 1A divorce workspace
+  short title: Clinic divorce workspace
+  description: Prepare, review, execute, and track a clinic divorce matter.
+  require login: True
+  required privileges:
+    - clinic_student
+    - clinic_supervisor
+    - clinic_admin
+    - admin
+  hidden: True
+---
+template: interview_short_title
+content: |
+  Clinic 1A divorce workspace
+---
+modules:
+  - .clinic_repository
+  - .clinic_workspace
+---
+features:
+  navigation: True
+  small screen navigation: dropdown
+  progress bar: True
+  progress can go backwards: True
+  question back button: False
+  css:
+    - clinic_workspace.css
+---
+sections:
+  - clinic_matter_setup: Matter setup
+  - clinic_matter_overview: Matter overview
+  - clinic_document_work: Document work
+    subsections:
+      - clinic_document_questions: Questions and draft
+      - clinic_document_review: Review and revisions
+      - clinic_document_execution: Signature and filing
+  - clinic_bundles_closeout: Bundles and closeout
+progressive: False
+auto open: True
+---
+default screen parts:
+  pre: |
+    % if defined("clinic_matter") and (showifdef("clinic_pending_action", None) or showifdef("clinic_document_work_in_progress", False) or showifdef("clinic_upload_in_progress", False)):
+    <aside class="clinic-work-context" aria-label="Current clinic work">
+      <div>
+        <span class="clinic-work-context__eyebrow">${ display_text(clinic_matter.get("safe_label")) }</span>
+        % if showifdef("clinic_active_document_id", None) in DOCUMENT_REGISTRY:
+        <strong>${ DOCUMENT_REGISTRY[clinic_active_document_id]["title"] }</strong>
+        % else:
+        <strong>Matter workspace</strong>
+        % endif
+        <small>Your submitted answers are saved in this matter.</small>
+      </div>
+      ${ action_button_html(url_action("clinic_return_to_matter"), label="Return to matter", icon="arrow-left", color="secondary", size="sm") }
+    </aside>
+    % endif
+---
+objects:
+  - clinic_received_files: DADict.using(object_type=DAFile, auto_gather=False, gathered=True)
+  - clinic_generated_files: DADict.using(auto_gather=False, gathered=True)
+---
+initial: True
+code: |
+  if not user_logged_in():
+    force_ask("clinic_workspace_sign_in_required")
+  if not has_clinic_privilege(user_privileges()):
+    force_ask("clinic_workspace_access_denied")
+  clinic_access_gate = True
+---
+initial: True
+code: |
+  if not defined("clinic_creation_authorized"):
+    clinic_creation_authorized = str(url_args.get("clinic_create", "0")) == "1"
+  if not defined("clinic_matter") and not clinic_creation_authorized:
+    redirect(
+      interview_url(
+        i="docassemble.MATC1ADivorceJointPetition:data/questions/main_clinic_dashboard.yml",
+        new_session=1,
+      )
+    )
+  # Docassemble normally processes action URLs before initial blocks. Take
+  # control of action processing so saved sessions receive the clinic rail and
+  # active progress state before an action can force a child or edit screen.
+  clinic_navigation_sections = [
+    {"clinic_matter_setup": "Matter setup"},
+    {"clinic_matter_overview": "Matter overview"},
+    {
+      "clinic_document_work": "Document work",
+      "subsections": [
+        {"clinic_document_questions": "Questions and draft"},
+        {"clinic_document_review": "Review and revisions"},
+        {"clinic_document_execution": "Signature and filing"},
+      ],
+    },
+    {"clinic_bundles_closeout": "Bundles and closeout"},
+  ]
+  # Included interviews may change the active language while they run. Replace
+  # both the English and fallback rails so a saved child screen cannot select a
+  # stale language-specific navigation list.
+  nav.set_sections(clinic_navigation_sections)
+  nav.set_sections(clinic_navigation_sections, language="en")
+  nav.set_sections(clinic_navigation_sections, language="*")
+  if not defined("clinic_matter"):
+    nav.set_section("clinic_matter_setup")
+    set_progress(5)
+  elif showifdef("clinic_document_work_in_progress", False):
+    nav.set_section("clinic_document_questions")
+  elif showifdef("clinic_pending_action", None) in (
+    "clinic_record_review_decision",
+    "clinic_record_document_answer_review",
+  ):
+    nav.set_section("clinic_document_review")
+  elif showifdef("clinic_pending_action", None) in (
+    "clinic_record_received_file",
+    "clinic_record_artifact_verification",
+  ):
+    nav.set_section("clinic_document_execution")
+  else:
+    clinic_progress_summary = matter_workflow_progress(clinic_matter)
+    nav.set_section("clinic_matter_overview")
+    set_progress(clinic_progress_summary["percent"])
+  process_action()
+---
+mandatory: True
+code: |
+  clinic_access_gate
+  if not defined("clinic_matter"):
+    clinic_new_matter_setup
+    clinic_document_planner
+    clinic_matter = new_matter(
+      user_info().id,
+      clinic_safe_label,
+    )
+    clinic_matter["case_posture"] = clinic_case_posture
+    clinic_matter["due_date"] = clinic_due_date.isoformat() if clinic_due_date else None
+    clinic_matter["filing_plan"]["task"] = clinic_case_posture
+    set_case_relationship(
+      clinic_matter,
+      0,
+      clinic_party_a_relationship,
+      user_info().id,
+    )
+    set_case_relationship(
+      clinic_matter,
+      1,
+      clinic_party_b_relationship,
+      user_info().id,
+    )
+    for clinic_document_id in clinic_planned_documents.true_values():
+      set_document_plan(
+        clinic_matter,
+        clinic_document_id,
+        "prepare_now",
+        user_info().id,
+      )
+    clinic_matter["next_action"] = "complete_document_work"
+  else:
+    clinic_matter = normalize_matter(clinic_matter)
+
+  if not can_view_matter(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+
+  if showifdef("clinic_pending_action", None):
+    value(clinic_pending_action)
+
+  # A document generator can ask dozens of child-interview questions. Keep the
+  # selected workflow explicit so the next request resumes it before the
+  # mandatory workspace home screen is evaluated.
+  if showifdef("clinic_document_work_in_progress", False):
+    value(DOCUMENT_REGISTRY[clinic_active_document_id]["workflow_event"])
+
+  clinic_current_summary = persist_current_matter_summary(clinic_matter)
+  # Keep this controller live across every workspace request. The home screen
+  # is an event, so forcing it prevents the mandatory block from becoming a
+  # completed, cached variable after the first document workflow finishes.
+  force_ask("clinic_workspace_home")
+---
+event: clinic_workspace_sign_in_required
+question: Sign in to the clinic workspace
+subquestion: |
+  This workspace contains confidential clinic matter information and is limited
+  to authorized clinic staff.
+buttons:
+  - Sign in: signin
+  - Exit: exit
+---
+event: clinic_workspace_access_denied
+question: Clinic access required
+subquestion: |
+  Your account does not have a clinic workspace privilege.
+buttons:
+  - Exit: exit
+---
+event: clinic_matter_access_denied
+question: You do not have access to this matter
+subquestion: |
+  This matter is not assigned to your clinic account. Return to the clinic
+  dashboard or contact the clinic administrator.
+buttons:
+  - Exit: exit
+---
+id: clinic new matter setup
+continue button field: clinic_new_matter_setup
+question: Create a clinic divorce matter
+subquestion: |
+  Use a clinic matter number or another approved internal identifier. Do not use
+  a client name in the dashboard label.
+
+  ${ action_button_html(interview_url(i="docassemble.MATC1ADivorceJointPetition:data/questions/main_clinic_dashboard.yml", new_session=1), label="Back to caseload", icon="arrow-left", color="secondary", size="sm") }
+fields:
+  - Clinic-safe matter label: clinic_safe_label
+    maxlength: 80
+  - What work is the clinic doing?: clinic_case_posture
+    input type: radio
+    choices:
+      - Prepare a new joint 1A filing: new_joint_1a
+      - Convert an existing 1B case to a joint 1A case: existing_1b_conversion
+      - Prepare a missing or updated filing: missing_or_updated_filing
+      - Prepare temporary orders: temporary_orders
+      - Prepare another supported document: supported_document
+  - Internal due date: clinic_due_date
+    datatype: date
+    required: False
+  - Party A's relationship to the clinic: clinic_party_a_relationship
+    input type: radio
+    choices:
+      - Represented client: represented_client
+      - Person receiving limited assistance: assisted_party
+      - Other party: other_party
+      - Signer only: signer
+  - Party B's relationship to the clinic: clinic_party_b_relationship
+    input type: radio
+    choices:
+      - Represented client: represented_client
+      - Person receiving limited assistance: assisted_party
+      - Other party: other_party
+      - Signer only: signer
+validation code: |
+  normalize_safe_label(clinic_safe_label)
+---
+id: clinic document planner
+continue button field: clinic_document_planner
+question: What documents should this matter prepare?
+subquestion: |
+  Select the documents in the current work plan. The workspace will identify
+  missing prerequisites before review or bundling.
+
+  % if not defined("clinic_matter"):
+  ${ action_button_html(interview_url(i="docassemble.MATC1ADivorceJointPetition:data/questions/main_clinic_dashboard.yml", new_session=1), label="Back to caseload", icon="arrow-left", color="secondary", size="sm") }
+  % endif
+fields:
+  - Documents: clinic_planned_documents
+    datatype: checkboxes
+    choices:
+      - Motion to convert a 1B divorce to a joint 1A divorce: motion_to_amend
+      - Joint petition for divorce: joint_petition
+      - Affidavit of irretrievable breakdown: irretrievable_breakdown_affidavit
+      - Report of Absolute Divorce or Annulment (R408): r408
+      - Motion to file marriage certificate late: late_marriage_certificate_motion
+      - Affidavit disclosing care or custody proceedings: care_or_custody_affidavit
+      - Child Support Guidelines Worksheet: child_support_guidelines
+      - Findings and Determinations: findings_and_determinations
+      - Financial statement for Party A: financial_statement_party_a
+      - Financial statement for Party B: financial_statement_party_b
+      - Separation agreement: separation_agreement
+      - Affidavit of indigency: affidavit_of_indigency
+      - Temporary orders packet: temporary_orders_packet
+    none of the above: False
+    minlength: 1
+validation code: |
+  clinic_selected_document_ids = set(clinic_planned_documents.true_values())
+  clinic_missing_document_dependencies = set()
+  for clinic_document_id in clinic_selected_document_ids:
+    clinic_missing_document_dependencies.update(
+      set(DOCUMENT_REGISTRY[clinic_document_id]["requires"]) - clinic_selected_document_ids
+    )
+  if clinic_missing_document_dependencies:
+    validation_error(
+      "Add the required document work: "
+      + ", ".join(
+        DOCUMENT_REGISTRY[document_id]["title"]
+        for document_id in sorted(clinic_missing_document_dependencies)
+      )
+    )
+---
+event: clinic_workspace_home
+question: ${ display_text(clinic_matter["safe_label"]) }
+subquestion: |
+  <% clinic_home_progress = matter_workflow_progress(clinic_matter) %>
+  <div class="clinic-workspace-summary">
+    <div><span>Case posture</span><strong>${ clinic_matter.get("case_posture", "unselected").replace("_", " ").title() }</strong></div>
+    <div><span>Status</span><strong>${ clinic_matter.get("overall_status", "active").replace("_", " ").title() }</strong></div>
+    <div><span>Next action</span><strong>${ clinic_matter.get("next_action", "review matter").replace("_", " ").title() }</strong></div>
+    <div><span>Workspace progress</span><strong>${ clinic_home_progress["percent"] }%</strong></div>
+  </div>
+
+  <div class="clinic-progress-summary" aria-label="Matter workflow progress">
+    <progress max="100" value="${ clinic_home_progress["percent"] }">${ clinic_home_progress["percent"] }%</progress>
+    <p>
+      <strong>${ clinic_home_progress["with_current_file"] } of ${ clinic_home_progress["selected"] }</strong> planned documents have a current file;
+      <strong>${ clinic_home_progress["approved"] }</strong> are approved;
+      <strong>${ clinic_home_progress["executed"] }</strong> have a signed, notarized, or filed copy.
+    </p>
+    <small>This measures work recorded in the clinic workspace, not court completion.</small>
+  </div>
+
+  <div class="clinic-dashboard-actions">
+    ${ action_button_html(interview_url(i="docassemble.MATC1ADivorceJointPetition:data/questions/main_clinic_dashboard.yml", new_session=1), label="Caseload dashboard", icon="table-list", color="secondary") }
+    % if can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    ${ action_button_html(url_action("clinic_edit_matter_details"), label="Matter details", icon="pen-to-square", color="secondary") }
+    ${ action_button_html(url_action("clinic_edit_plan"), label="Edit filing plan", icon="list-check", color="secondary") }
+    % endif
+    % if can_manage_team(clinic_matter, user_info().id, user_privileges()):
+    ${ action_button_html(url_action("clinic_manage_team"), label="Manage team", icon="users", color="secondary") }
+    % endif
+    % if can_add_internal_note(clinic_matter, user_info().id, user_privileges()):
+    ${ action_button_html(url_action("clinic_begin_internal_note"), label="Add team note", icon="comment", color="secondary") }
+    % endif
+    ${ action_button_html(url_action("clinic_build_bundle", bundle_type="court_use"), label="Build court-use bundle", icon="file-pdf", color="secondary") }
+    ${ action_button_html(url_action("clinic_build_bundle", bundle_type="records"), label="Build records bundle", icon="box-archive", color="secondary") }
+    % if clinic_matter.get("overall_status") == "closed" and set(user_privileges()).intersection({"clinic_admin", "admin"}):
+    ${ action_button_html(url_action("clinic_reopen_matter"), label="Reopen matter", icon="lock-open", color="warning") }
+    % elif can_close_matter(clinic_matter, user_info().id, user_privileges()):
+    ${ action_button_html(url_action("clinic_begin_close_matter"), label="Close matter", icon="box", color="danger") }
+    % endif
+  </div>
+
+  <p class="clinic-team-summary">
+    <strong>Team:</strong>
+    % for member in clinic_matter.get("team_members", []):
+    % if member.get("active"):
+    <span>
+      ${ member["matter_role"].replace("_", " ").title() } (user ${ member["user_id"] })
+      % if can_manage_team(clinic_matter, user_info().id, user_privileges()) and member["user_id"] != clinic_matter["owner_user_id"]:
+      <a href="${ url_action("clinic_deactivate_team_member", team_user_id=member["user_id"]) }">Remove</a>
+      % if member["matter_role"] == "collaborator":
+      · <a href="${ url_action("clinic_reassign_owner", team_user_id=member["user_id"]) }">Make owner</a>
+      % endif
+      % endif
+    </span>
+    % endif
+    % endfor
+  </p>
+
+  % if clinic_matter.get("internal_notes"):
+  <section class="clinic-notes" aria-labelledby="clinic-notes-heading">
+    <h2 id="clinic-notes-heading">Recent team notes</h2>
+    % for note in reversed(clinic_matter["internal_notes"][-5:]):
+    <article>
+      <p>${ display_text(note["text"]).replace(chr(10), "<br>") }</p>
+      <small>User ${ note["actor_user_id"] } · ${ note["at"] }</small>
+    </article>
+    % endfor
+  </section>
+  % endif
+
+  <div class="clinic-document-list">
+  % for registry_item in document_registry_for_display():
+  <% document_id = registry_item["document_id"] %>
+  <% item = clinic_matter["documents"][document_id] %>
+  % if item["plan_status"] != "not_selected":
+    <article class="clinic-document-card">
+      <div class="clinic-document-card__header">
+        <h2>${ registry_item["title"] }</h2>
+        <span class="clinic-status">${ item["review_status"].replace("_", " ").title() }</span>
+      </div>
+      <div class="clinic-document-statuses">
+        <span>Source: <strong>${ item["source_status"].replace("_", " ").title() }</strong></span>
+        <span>Execution: <strong>${ item["execution_status"].replace("_", " ").title() }</strong></span>
+        <span>Revision: <strong>${ item["revision"] }</strong></span>
+        <span>Bundles: <strong>${ comma_and_list([destination.replace("_", " ").title() for destination in item.get("bundle_destinations", [])]) if item.get("bundle_destinations") else "None" }</strong></span>
+        <span>Assigned: <strong>${ "User " + str(item["assigned_user_id"]) if item.get("assigned_user_id") else "Unassigned" }</strong></span>
+      </div>
+      % if item["dependency_blockers"]:
+      <div class="alert alert-warning">
+        Required first: ${ comma_and_list([DOCUMENT_REGISTRY[dependency]["title"] for dependency in item["dependency_blockers"]]) }
+      </div>
+      % endif
+      % if item.get("review_history"):
+      <% latest_review = item["review_history"][-1] %>
+      <div class="clinic-review-note">
+        <strong>Latest review:</strong>
+        ${ latest_review["decision"].replace("_", " ").title() }
+        % if latest_review.get("comment"):
+        — ${ display_text(latest_review["comment"]) }
+        % endif
+      </div>
+      % endif
+      % if item.get("artifacts"):
+      <details class="clinic-artifact-list">
+        <summary>${ len(item["artifacts"]) } stored file${ "s" if len(item["artifacts"]) != 1 else "" }</summary>
+        <ul>
+        % for artifact in reversed(item["artifacts"]):
+          <li>
+            Version ${ artifact["version"] }: ${ artifact["purpose"].replace("_", " ").title() }
+            % if artifact.get("superseded_at"):
+            (superseded)
+            % elif artifact.get("verified_at"):
+            (verified)
+            % else:
+            (verification pending)
+            % endif
+            % if artifact.get("file_reference"):
+            — <a href="${ value(artifact["file_reference"]).url_for(attachment=True) }">Download</a>
+            % endif
+            % if artifact.get("details", {}).get("event_date"):
+            — dated ${ artifact["details"]["event_date"] }
+            % endif
+            % if artifact.get("details", {}).get("court_outcome") not in (None, "not_applicable"):
+            — court outcome: ${ artifact["details"]["court_outcome"].replace("_", " ").title() }
+            % endif
+            % if artifact.get("details", {}).get("court_note"):
+            <div class="clinic-artifact-note">${ display_text(artifact["details"]["court_note"]) }</div>
+            % endif
+            % if not artifact.get("verified_at") and artifact["purpose"] in ("signed_copy", "notarized_copy", "filed_copy", "court_returned_copy") and can_review_document(clinic_matter, user_info().id, user_privileges()):
+            ${ action_button_html(url_action("clinic_begin_verify_artifact", document_id=document_id, artifact_id=artifact["artifact_id"]), label="Verify", icon="shield-check", color="success", size="sm") }
+            % endif
+          </li>
+        % endfor
+        </ul>
+      </details>
+      % endif
+      <div class="clinic-document-actions">
+        % if can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+        % if not item.get("artifacts"):
+        ${ action_button_html(url_action("clinic_open_document", document_id=document_id), label="Answer questions and create draft", icon="pen", color="primary", size="sm") }
+        % else:
+        % if clinic_document_review_entries(document_id):
+        ${ action_button_html(url_action("clinic_begin_document_answer_review", document_id=document_id), label="Review or update answers", icon="pen", color="primary", size="sm") }
+        % endif
+        ${ action_button_html(url_action("clinic_open_document", document_id=document_id, regenerate=True), label="Regenerate draft", icon="rotate", color="primary", size="sm") }
+        % endif
+        ${ action_button_html(url_action("clinic_begin_upload", document_id=document_id), label="Add received file", icon="upload", color="secondary", size="sm") }
+        % if can_manage_team(clinic_matter, user_info().id, user_privileges()):
+        ${ action_button_html(url_action("clinic_assign_document", document_id=document_id), label="Assign", icon="user-check", color="secondary", size="sm") }
+        % endif
+        ${ action_button_html(url_action("clinic_toggle_bundle_destination", document_id=document_id, bundle_type="court_use"), label=("Remove from" if "court_use" in item.get("bundle_destinations", []) else "Add to") + " court bundle", icon="file-arrow-up", color="secondary", size="sm") }
+        ${ action_button_html(url_action("clinic_toggle_bundle_destination", document_id=document_id, bundle_type="records"), label=("Remove from" if "records" in item.get("bundle_destinations", []) else "Add to") + " records bundle", icon="box-archive", color="secondary", size="sm") }
+        % if item["review_status"] in ("in_progress", "changes_requested") and not item["dependency_blockers"]:
+        ${ action_button_html(url_action("clinic_submit_document", document_id=document_id), label="Submit for review", icon="paper-plane", color="success", size="sm") }
+        % endif
+        % endif
+        % if can_review_document(clinic_matter, user_info().id, user_privileges()) and item["review_status"] == "ready_for_review":
+        ${ action_button_html(url_action("clinic_begin_review", document_id=document_id, decision="approved"), label="Approve", icon="check", color="success", size="sm") }
+        ${ action_button_html(url_action("clinic_begin_review", document_id=document_id, decision="changes_requested"), label="Request changes", icon="rotate-left", color="warning", size="sm") }
+        % endif
+        % if can_review_document(clinic_matter, user_info().id, user_privileges()) and item["review_status"] == "approved" and item["execution_status"] in ("draft", "needs_revision"):
+        ${ action_button_html(url_action("clinic_transition_execution", document_id=document_id, status="ready_for_signature"), label="Ready for signature", icon="signature", color="primary", size="sm") }
+        % endif
+      </div>
+    </article>
+  % endif
+  % endfor
+  </div>
+---
+event: clinic_return_to_matter
+code: |
+  if not can_view_matter(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_pending_action = None
+  clinic_document_work_in_progress = False
+  clinic_upload_in_progress = False
+  clinic_progress_summary = matter_workflow_progress(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+event: clinic_matter_setup
+code: |
+  if defined("clinic_matter"):
+    force_ask("clinic_workspace_home")
+  force_ask("clinic_new_matter_setup")
+---
+event: clinic_matter_overview
+code: |
+  clinic_return_to_matter
+---
+event: clinic_document_work
+code: |
+  clinic_return_to_matter
+---
+event: clinic_document_questions
+code: |
+  if showifdef("clinic_document_work_in_progress", False) and showifdef("clinic_active_document_id", None) in DOCUMENT_REGISTRY:
+    force_ask(DOCUMENT_REGISTRY[clinic_active_document_id]["workflow_event"])
+  clinic_return_to_matter
+---
+event: clinic_document_review
+code: |
+  clinic_return_to_matter
+---
+event: clinic_document_execution
+code: |
+  clinic_return_to_matter
+---
+event: clinic_bundles_closeout
+code: |
+  clinic_return_to_matter
+---
+event: clinic_edit_plan
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  for clinic_document_id, clinic_document_item in clinic_matter["documents"].items():
+    clinic_planned_documents[clinic_document_id] = (
+      clinic_document_item["plan_status"] != "not_selected"
+    )
+  undefine("clinic_document_planner")
+  undefine("clinic_apply_edited_plan")
+  clinic_pending_action = "clinic_apply_edited_plan"
+  force_ask("clinic_document_planner", "clinic_apply_edited_plan")
+---
+event: clinic_edit_matter_details
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_edit_safe_label = clinic_matter["safe_label"]
+  clinic_edit_due_date = as_datetime(clinic_matter["due_date"]) if clinic_matter.get("due_date") else None
+  clinic_edit_case_posture = clinic_matter["case_posture"]
+  undefine("clinic_record_matter_details")
+  clinic_pending_action = "clinic_record_matter_details"
+  force_ask("clinic_matter_details_screen", "clinic_record_matter_details")
+---
+id: clinic matter details screen
+continue button field: clinic_matter_details_screen
+question: Update matter details
+fields:
+  - Clinic-safe matter label: clinic_edit_safe_label
+    maxlength: 80
+  - Internal due date: clinic_edit_due_date
+    datatype: date
+    required: False
+  - Case posture: clinic_edit_case_posture
+    input type: radio
+    choices:
+      - Prepare a new joint 1A filing: new_joint_1a
+      - Convert an existing 1B case to a joint 1A case: existing_1b_conversion
+      - Prepare a missing or updated filing: missing_or_updated_filing
+      - Prepare temporary orders: temporary_orders
+      - Prepare another supported document: supported_document
+validation code: |
+  normalize_safe_label(clinic_edit_safe_label)
+---
+sets: clinic_record_matter_details
+code: |
+  clinic_matter["safe_label"] = normalize_safe_label(clinic_edit_safe_label)
+  clinic_matter["due_date"] = clinic_edit_due_date.isoformat() if clinic_edit_due_date else None
+  clinic_matter["case_posture"] = clinic_edit_case_posture
+  clinic_matter["filing_plan"]["task"] = clinic_edit_case_posture
+  record_activity(clinic_matter, "matter_details_updated", user_info().id)
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_matter_details = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_apply_edited_plan
+code: |
+  for clinic_document_id in DOCUMENT_REGISTRY:
+    clinic_existing_plan_status = clinic_matter["documents"][clinic_document_id]["plan_status"]
+    set_document_plan(
+      clinic_matter,
+      clinic_document_id,
+      (
+        clinic_existing_plan_status
+        if clinic_planned_documents[clinic_document_id]
+        and clinic_existing_plan_status != "not_selected"
+        else "prepare_now"
+        if clinic_planned_documents[clinic_document_id]
+        else "not_selected"
+      ),
+      user_info().id,
+    )
+  clinic_matter["next_action"] = "complete_document_work"
+  persist_current_matter_summary(clinic_matter)
+  clinic_apply_edited_plan = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_open_document
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_active_document_id = action_argument("document_id")
+  if clinic_active_document_id not in DOCUMENT_REGISTRY:
+    force_ask("clinic_unknown_document")
+  clinic_active_document = clinic_matter["documents"][clinic_active_document_id]
+  clinic_review_event = DOCUMENT_REGISTRY[clinic_active_document_id].get("review_event")
+  clinic_has_generated_draft = any(
+    artifact["purpose"] == "generated_draft" and not artifact.get("superseded_at")
+    for artifact in clinic_active_document["artifacts"]
+  )
+  if clinic_has_generated_draft:
+    mark_fact_changes(
+      clinic_matter,
+      affected_documents_for_change(clinic_matter, clinic_active_document_id),
+      user_info().id,
+    )
+  clinic_document_work_in_progress = True
+  clinic_document_review_pending = False
+  clinic_generation_token = (
+    clinic_active_document_id
+    + "_"
+    + str(len(clinic_matter["activity"]))
+    + "_"
+    + str(len(clinic_active_document["artifacts"]))
+  )
+  undefine(DOCUMENT_REGISTRY[clinic_active_document_id]["workflow_event"])
+  force_ask(DOCUMENT_REGISTRY[clinic_active_document_id]["workflow_event"])
+---
+event: clinic_begin_document_answer_review
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_active_document_id = action_argument("document_id")
+  clinic_answer_review_entries = clinic_document_review_entries(clinic_active_document_id)
+  if not clinic_answer_review_entries:
+    force_ask("clinic_unknown_document")
+  if clinic_active_document_id == "financial_statement_party_a":
+    i = 0
+  elif clinic_active_document_id == "financial_statement_party_b":
+    i = 1
+  undefine("clinic_document_answer_review_screen")
+  undefine("clinic_record_document_answer_review")
+  clinic_pending_action = "clinic_record_document_answer_review"
+  force_ask("clinic_document_answer_review_screen", "clinic_record_document_answer_review")
+---
+id: clinic document answer review screen
+continue button field: clinic_document_answer_review_screen
+continue button label: Done reviewing answers
+question: Review or update answers
+subquestion: |
+  Choose an answer to update. After you save the answer, you will return to
+  this list. When the canonical answers are correct, select **Done reviewing
+  answers**, then regenerate the draft from the matter workspace.
+
+  <div class="clinic-review-answer-grid">
+  % for entry in clinic_answer_review_entries:
+    ${ action_button_html(url_ask([{"undefine": [entry["variable"]]}, entry["variable"], "clinic_document_answer_review_screen"]), label=entry["label"], icon="pen", color="secondary", size="sm") }
+  % endfor
+  </div>
+---
+sets: clinic_record_document_answer_review
+code: |
+  mark_fact_changes(
+    clinic_matter,
+    affected_documents_for_change(clinic_matter, clinic_active_document_id),
+    user_info().id,
+  )
+  clinic_matter["next_action"] = "regenerate_updated_document"
+  record_activity(
+    clinic_matter,
+    "canonical_answers_reviewed",
+    user_info().id,
+    document_id=clinic_active_document_id,
+  )
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_document_answer_review = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_unknown_document
+question: Unsupported document
+subquestion: |
+  The requested document is not in this clinic workspace version.
+continue button field: clinic_unknown_document_acknowledged
+---
+event: clinic_begin_upload
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  if not showifdef("clinic_upload_in_progress", False):
+    clinic_upload_in_progress = True
+    clinic_active_document_id = action_argument("document_id")
+    clinic_upload_key = "received_" + str(len(clinic_matter["activity"]))
+    undefine("clinic_upload_purpose")
+    undefine("clinic_upload_disposition")
+    undefine("clinic_upload_event_date")
+    undefine("clinic_upload_filing_method")
+    undefine("clinic_upload_court_outcome")
+    undefine("clinic_upload_court_note")
+  undefine("clinic_record_received_file")
+  clinic_pending_action = "clinic_record_received_file"
+  force_ask("clinic_received_file_screen", "clinic_record_received_file")
+---
+id: clinic received file screen
+continue button field: clinic_received_file_screen
+question: Add a received file
+subquestion: |
+  Add this file to **${ DOCUMENT_REGISTRY[clinic_active_document_id]["title"] }**.
+  The file will not change answers or enter a bundle until the required review
+  and verification are complete.
+fields:
+  - File: clinic_received_files[clinic_upload_key]
+    datatype: file
+    accept: |
+      "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,.pdf,.doc,.docx,.png,.jpg,.jpeg"
+  - What kind of file is this?: clinic_upload_purpose
+    input type: radio
+    choices:
+      - Existing document for reference: existing_reference
+      - Client-completed working draft: external_working_draft
+      - Client-annotated copy: client_annotated_reference
+      - Signed copy: signed_copy
+      - Notarized copy: notarized_copy
+      - Filed copy: filed_copy
+      - Court-returned copy: court_returned_copy
+  - How should the clinic use this file?: clinic_upload_disposition
+    input type: radio
+    choices:
+      - Keep it as a reference only: reference_only
+      - Review and use this exact file as the working document: use_exact_file
+      - Update the interview answers and regenerate the document: update_answers_and_regenerate
+      - Not applicable because this is an executed or court-returned copy: not_applicable
+  - Date shown on the executed, filed, or returned copy: clinic_upload_event_date
+    datatype: date
+    required: False
+  - Filing method, if applicable: clinic_upload_filing_method
+    input type: dropdown
+    choices:
+      - Not recorded or not applicable: not_recorded
+      - Electronic filing: electronic
+      - In person: in_person
+      - Mail: mail
+      - Another method: other
+  - Court outcome, if this is a court-returned copy: clinic_upload_court_outcome
+    input type: radio
+    choices:
+      - Not applicable: not_applicable
+      - Accepted: accepted
+      - Rejected: rejected
+      - Follow-up needed: needs_followup
+  - Court or clerk note: clinic_upload_court_note
+    datatype: area
+    rows: 3
+    required: False
+validation code: |
+  if clinic_upload_purpose in (
+    "existing_reference",
+    "external_working_draft",
+    "client_annotated_reference",
+  ) and clinic_upload_disposition == "not_applicable":
+    validation_error("Choose how the clinic should use the received working file.")
+  if clinic_upload_purpose in (
+    "signed_copy",
+    "notarized_copy",
+    "filed_copy",
+    "court_returned_copy",
+  ) and clinic_upload_disposition != "not_applicable":
+    validation_error("Use 'Not applicable' for an executed or court-returned copy.")
+  if clinic_upload_purpose == "court_returned_copy" and clinic_upload_court_outcome == "not_applicable":
+    validation_error("Record the outcome shown on the court-returned copy.")
+  if clinic_upload_purpose != "court_returned_copy" and clinic_upload_court_outcome != "not_applicable":
+    validation_error("Record a court outcome only for a court-returned copy.")
+---
+sets: clinic_record_received_file
+code: |
+  clinic_recorded_artifact = add_artifact(
+    clinic_matter,
+    clinic_active_document_id,
+    clinic_upload_purpose,
+    user_info().id,
+    file_reference=durable_container_reference(
+      clinic_received_files,
+      clinic_upload_key,
+    ),
+    details={
+      "event_date": clinic_upload_event_date.isoformat() if clinic_upload_event_date else None,
+      "filing_method": clinic_upload_filing_method,
+      "court_outcome": clinic_upload_court_outcome,
+      "court_note": clinic_upload_court_note.strip() if clinic_upload_court_note else None,
+    },
+  )
+  if clinic_upload_disposition != "not_applicable":
+    set_artifact_disposition(
+      clinic_matter,
+      clinic_active_document_id,
+      clinic_recorded_artifact["artifact_id"],
+      clinic_upload_disposition,
+      user_info().id,
+    )
+  clinic_matter["next_action"] = (
+    "update_answers_and_regenerate"
+    if clinic_upload_disposition == "update_answers_and_regenerate"
+    else "review_received_file"
+  )
+  persist_current_matter_summary(clinic_matter)
+  clinic_upload_in_progress = False
+  undefine("clinic_received_file_screen")
+  clinic_record_received_file = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_submit_document
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_active_document_id = action_argument("document_id")
+  transition_review(
+    clinic_matter,
+    clinic_active_document_id,
+    "ready_for_review",
+    user_info().id,
+  )
+  clinic_matter["next_action"] = "supervisor_review"
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+event: clinic_begin_review
+code: |
+  if not can_review_document(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_active_document_id = action_argument("document_id")
+  clinic_review_decision = action_argument("decision")
+  undefine("clinic_review_comment")
+  undefine("clinic_record_review_decision")
+  clinic_pending_action = "clinic_record_review_decision"
+  force_ask("clinic_review_decision_screen", "clinic_record_review_decision")
+---
+id: clinic review decision screen
+continue button field: clinic_review_decision_screen
+question: ${ "Approve" if clinic_review_decision == "approved" else "Request changes to" } ${ DOCUMENT_REGISTRY[clinic_active_document_id]["title"] }
+fields:
+  - Review comment: clinic_review_comment
+    datatype: area
+    rows: 5
+    required: clinic_review_decision == "changes_requested"
+validation code: |
+  if clinic_review_decision == "changes_requested" and not clinic_review_comment.strip():
+    validation_error("Explain what the student needs to change.")
+---
+sets: clinic_record_review_decision
+code: |
+  record_review_decision(
+    clinic_matter,
+    clinic_active_document_id,
+    clinic_review_decision,
+    user_info().id,
+    comment=clinic_review_comment,
+  )
+  clinic_matter["next_action"] = (
+    "prepare_for_signature"
+    if clinic_review_decision == "approved"
+    else "respond_to_requested_changes"
+  )
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_review_decision = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_begin_verify_artifact
+code: |
+  if not can_review_document(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_active_document_id = action_argument("document_id")
+  clinic_active_artifact_id = action_argument("artifact_id")
+  undefine("clinic_verify_document_identity")
+  undefine("clinic_verify_execution_marks")
+  undefine("clinic_verify_claimed_status")
+  undefine("clinic_record_artifact_verification")
+  clinic_pending_action = "clinic_record_artifact_verification"
+  force_ask(
+    "clinic_artifact_verification_screen",
+    "clinic_record_artifact_verification",
+  )
+---
+id: clinic artifact verification screen
+continue button field: clinic_artifact_verification_screen
+question: Verify the received file
+subquestion: |
+  Confirm the file itself. Uploading it did not prove that it was signed,
+  notarized, filed, or returned by the court.
+fields:
+  - I confirmed that this is the expected document for this matter: clinic_verify_document_identity
+    datatype: yesno
+  - I checked the expected signatures, dates, stamps, or other execution marks: clinic_verify_execution_marks
+    datatype: yesno
+  - The file supports the status selected when it was uploaded: clinic_verify_claimed_status
+    datatype: yesno
+validation code: |
+  if not all((
+    clinic_verify_document_identity,
+    clinic_verify_execution_marks,
+    clinic_verify_claimed_status,
+  )):
+    validation_error("Do not verify the file until every check is complete.")
+---
+sets: clinic_record_artifact_verification
+code: |
+  verify_artifact(
+    clinic_matter,
+    clinic_active_document_id,
+    clinic_active_artifact_id,
+    user_info().id,
+  )
+  clinic_matter["next_action"] = "review_matter"
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_artifact_verification = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_transition_execution
+code: |
+  if not can_review_document(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  transition_execution(
+    clinic_matter,
+    action_argument("document_id"),
+    action_argument("status"),
+    user_info().id,
+  )
+  clinic_matter["next_action"] = "collect_signatures"
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+event: clinic_toggle_bundle_destination
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_bundle_document_id = action_argument("document_id")
+  clinic_bundle_type = action_argument("bundle_type")
+  set_bundle_destination(
+    clinic_matter,
+    clinic_bundle_document_id,
+    clinic_bundle_type,
+    clinic_bundle_type not in clinic_matter["documents"][clinic_bundle_document_id].get("bundle_destinations", []),
+    user_info().id,
+  )
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+event: clinic_build_bundle
+code: |
+  if not can_view_matter(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_bundle_type = action_argument("bundle_type")
+  clinic_bundle_artifact_records = bundle_artifacts(clinic_matter, clinic_bundle_type)
+  if not clinic_bundle_artifact_records:
+    force_ask("clinic_bundle_not_ready")
+  clinic_bundle_output = pdf_concatenate(
+    [value(artifact["file_reference"]) for artifact in clinic_bundle_artifact_records],
+    filename=clinic_matter["safe_label"].replace(" ", "_") + "_" + clinic_bundle_type + ".pdf",
+  )
+  force_ask("clinic_bundle_download")
+---
+event: clinic_bundle_not_ready
+question: No files are ready for this bundle
+subquestion: |
+  Assign documents to this bundle and complete their required approval or file
+  verification first.
+buttons:
+  - Return to matter:
+      code: |
+        clinic_bundle_return_to_matter = True
+---
+event: clinic_bundle_download
+question: ${ "Court-use" if clinic_bundle_type == "court_use" else "Records" } bundle ready
+subquestion: |
+  This bundle contains ${ len(clinic_bundle_artifact_records) } current,
+  eligible document file${ "s" if len(clinic_bundle_artifact_records) != 1 else "" }.
+
+  ${ clinic_bundle_output }
+buttons:
+  - Return to matter:
+      code: |
+        clinic_bundle_return_to_matter = True
+---
+event: clinic_manage_team
+code: |
+  if not can_manage_team(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  undefine("clinic_team_user_id")
+  undefine("clinic_team_role")
+  undefine("clinic_record_team_member")
+  clinic_pending_action = "clinic_record_team_member"
+  force_ask("clinic_team_member_screen", "clinic_record_team_member")
+---
+event: clinic_begin_internal_note
+code: |
+  if not can_add_internal_note(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  undefine("clinic_internal_note_text")
+  undefine("clinic_record_internal_note")
+  clinic_pending_action = "clinic_record_internal_note"
+  force_ask("clinic_internal_note_screen", "clinic_record_internal_note")
+---
+id: clinic internal note screen
+continue button field: clinic_internal_note_screen
+question: Add a team note
+subquestion: |
+  This note is confidential matter data. It is visible to assigned clinic
+  staff, but it is never copied into dashboard search metadata.
+fields:
+  - Note: clinic_internal_note_text
+    datatype: area
+    rows: 6
+    maxlength: 2000
+---
+sets: clinic_record_internal_note
+code: |
+  add_internal_note(
+    clinic_matter,
+    clinic_internal_note_text,
+    user_info().id,
+  )
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_internal_note = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+id: clinic team member screen
+continue button field: clinic_team_member_screen
+question: Add or update a matter team member
+subquestion: |
+  Enter the person's Docassemble user ID. The person must also have the matching
+  clinic account privilege. This assignment does not grant a server role.
+
+  After assignment, send the person this matter link through the clinic's
+  approved communication channel:
+
+  `${ interview_url(i=current_context().filename, session=current_context().session) }`
+fields:
+  - Docassemble user ID: clinic_team_user_id
+    datatype: integer
+    min: 1
+  - Matter role: clinic_team_role
+    input type: radio
+    choices:
+      - Student collaborator: collaborator
+      - Supervisor: supervisor
+      - Read-only staff viewer: viewer
+---
+sets: clinic_record_team_member
+code: |
+  assign_team_member(
+    clinic_matter,
+    clinic_team_user_id,
+    clinic_team_role,
+    user_info().id,
+  )
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_team_member = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_assign_document
+code: |
+  if not can_manage_team(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_active_document_id = action_argument("document_id")
+  undefine("clinic_document_assignee")
+  undefine("clinic_record_document_assignment")
+  clinic_pending_action = "clinic_record_document_assignment"
+  force_ask(
+    "clinic_document_assignment_screen",
+    "clinic_record_document_assignment",
+  )
+---
+id: clinic document assignment screen
+continue button field: clinic_document_assignment_screen
+question: Assign ${ DOCUMENT_REGISTRY[clinic_active_document_id]["title"] }
+fields:
+  - Student worker: clinic_document_assignee
+    datatype: integer
+    code: |
+      {
+        member["user_id"]: "User " + str(member["user_id"])
+        for member in clinic_matter["team_members"]
+        if member.get("active") and member.get("matter_role") in ("owner", "collaborator")
+      }
+---
+sets: clinic_record_document_assignment
+code: |
+  assign_document(
+    clinic_matter,
+    clinic_active_document_id,
+    clinic_document_assignee,
+    user_info().id,
+  )
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_document_assignment = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_deactivate_team_member
+code: |
+  if not can_manage_team(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  deactivate_team_member(
+    clinic_matter,
+    int(action_argument("team_user_id")),
+    user_info().id,
+  )
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+event: clinic_reassign_owner
+code: |
+  if not can_manage_team(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  reassign_matter_owner(
+    clinic_matter,
+    int(action_argument("team_user_id")),
+    user_info().id,
+  )
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+event: clinic_begin_close_matter
+code: |
+  if not can_close_matter(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  clinic_closeout_blockers = matter_closeout_blockers(clinic_matter)
+  undefine("clinic_closure_reason")
+  undefine("clinic_record_matter_close")
+  clinic_pending_action = "clinic_record_matter_close"
+  force_ask("clinic_close_matter_screen", "clinic_record_matter_close")
+---
+id: clinic close matter screen
+continue button field: clinic_close_matter_screen
+question: Close this clinic matter?
+subquestion: |
+  Closing makes the matter read-only. Stored documents and the activity history
+  remain available to assigned clinic staff.
+
+  % if clinic_closeout_blockers:
+  The following planned documents are not approved or filed:
+
+  % for blocker in clinic_closeout_blockers:
+  - ${ blocker }
+  % endfor
+  % endif
+fields:
+  - Closure reason: clinic_closure_reason
+    input type: radio
+    choices:
+      - Work completed: completed
+      - Client or clinic withdrew: withdrawn
+      - Matter transferred: transferred
+      - Administrative closure: administrative
+validation code: |
+  if clinic_closure_reason == "completed" and clinic_closeout_blockers:
+    validation_error(
+      "Choose another closure reason or finish the remaining planned documents."
+    )
+---
+sets: clinic_record_matter_close
+code: |
+  close_matter(
+    clinic_matter,
+    user_info().id,
+    reason=clinic_closure_reason,
+  )
+  persist_current_matter_summary(clinic_matter)
+  clinic_record_matter_close = True
+  clinic_pending_action = None
+  force_ask("clinic_workspace_home")
+---
+event: clinic_reopen_matter
+code: |
+  if not set(user_privileges()).intersection({"clinic_admin", "admin"}):
+    force_ask("clinic_matter_access_denied")
+  reopen_matter(clinic_matter, user_info().id)
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_joint_petition
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  interview_order_divorcejointpetition
+  trial_court
+  trial_court_confirmed
+  set_trial_court_division
+  snapshot_generated_artifact(
+    clinic_matter,
+    "joint_petition",
+    divorcejointpetition_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  if clinic_matter["documents"]["irretrievable_breakdown_affidavit"]["plan_status"] != "not_selected":
+    snapshot_generated_artifact(
+      clinic_matter,
+      "irretrievable_breakdown_affidavit",
+      affidavit_attachment,
+      clinic_generated_files,
+      user_info().id,
+      generation_token=clinic_generation_token,
+    )
+  clinic_work_joint_petition = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_motion_to_amend
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  combined_interview_order_motion_to_amend
+  snapshot_generated_artifact(
+    clinic_matter,
+    "motion_to_amend",
+    motion_to_amend_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_motion_to_amend = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_r408
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  interview_order_r408
+  snapshot_generated_artifact(
+    clinic_matter,
+    "r408",
+    r408_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_r408 = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_late_marriage_certificate_motion
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  interview_order_jointmotiontofilemarriagecertificatelate
+  snapshot_generated_artifact(
+    clinic_matter,
+    "late_marriage_certificate_motion",
+    jointmotiontofilemarriagecertificatelate_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_late_marriage_certificate_motion = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_care_or_custody_affidavit
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  set_care_or_custody_affidavit_defaults
+  interview_order_affidavit_disclosing_care_or_custody_children
+  interview_order_affidavit_disclosing_care_or_custody_cases
+  interview_order_affidavit_disclosing_care_or_custody_addresses
+  trigger_aff_care_or_custody_computed_variables
+  snapshot_generated_artifact(
+    clinic_matter,
+    "care_or_custody_affidavit",
+    affidavit_of_care_or_custody_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_care_or_custody_affidavit = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_child_support_guidelines
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  set_child_support_guidelines_defaults
+  ma_child_support_guidelines_worksheet_intro
+  interview_order_ma_child_support_guidelines_worksheet
+  set_child_support_defaults_from_guidelines
+  snapshot_generated_artifact(
+    clinic_matter,
+    "child_support_guidelines",
+    ma_child_support_guidelines_worksheet_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_child_support_guidelines = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_findings_and_determinations
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  set_findings_and_determinations_defaults
+  cjd_305_intro
+  interview_order_cjd_305
+  snapshot_generated_artifact(
+    clinic_matter,
+    "findings_and_determinations",
+    cjd_305_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_findings_and_determinations = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_financial_statements
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  users[0].making_statement_for = (
+    clinic_matter["documents"]["financial_statement_party_a"]["plan_status"] != "not_selected"
+  )
+  users[1].making_statement_for = (
+    clinic_matter["documents"]["financial_statement_party_b"]["plan_status"] != "not_selected"
+  )
+  financial_statement_court_division = trial_court.division
+  interview_order_financial_statement
+  for clinic_party_index, clinic_document_id in (
+    (0, "financial_statement_party_a"),
+    (1, "financial_statement_party_b"),
+  ):
+    if clinic_matter["documents"][clinic_document_id]["plan_status"] != "not_selected":
+      clinic_financial_artifact = (
+        users[clinic_party_index].financial_statement_short_attachment
+        if users[clinic_party_index].financial_form_type == "short"
+        else users[clinic_party_index].financial_statement_long_attachment
+      )
+      snapshot_generated_artifact(
+        clinic_matter,
+        clinic_document_id,
+        clinic_financial_artifact,
+        clinic_generated_files,
+        user_info().id,
+        generation_token=clinic_generation_token,
+      )
+  clinic_work_financial_statements = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_separation_agreement
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  interview_order_a_divorce_agreement
+  snapshot_generated_artifact(
+    clinic_matter,
+    "separation_agreement",
+    a_divorce_agreement_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_separation_agreement = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_affidavit_of_indigency
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  set_indigency_defaults
+  ask_affidavit_questions
+  snapshot_generated_artifact(
+    clinic_matter,
+    "affidavit_of_indigency",
+    affidavitofindigency_attachment,
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_affidavit_of_indigency = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")
+---
+sets: clinic_work_temporary_orders
+code: |
+  if not can_edit_facts(clinic_matter, user_info().id, user_privileges()):
+    force_ask("clinic_matter_access_denied")
+  temporary_orders_intro
+  temporary_orders_packet_order
+  snapshot_generated_artifact(
+    clinic_matter,
+    "temporary_orders_packet",
+    [
+      temporary_orders_motion_attachment,
+      temporary_orders_affidavit_attachment,
+      temporary_orders_proposed_order_attachment,
+    ],
+    clinic_generated_files,
+    user_info().id,
+    generation_token=clinic_generation_token,
+  )
+  clinic_work_temporary_orders = True
+  clinic_document_work_in_progress = False
+  clinic_document_review_pending = False
+  persist_current_matter_summary(clinic_matter)
+  force_ask("clinic_workspace_home")

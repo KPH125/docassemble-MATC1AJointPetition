@@ -1,0 +1,38 @@
+name: Check clinic workspace
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinic-workspace-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  model-and-performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install static test dependencies
+        run: python -m pip install pyyaml
+
+      - name: Run clinic workspace model and source tests
+        run: python -m unittest discover -s tests/clinic_workspace -p 'test_*.py' -v
+
+      - name: Benchmark dashboard projection and filtering
+        run: |
+          python tests/clinic_workspace/benchmark_dashboard.py \
+            --output tests/clinic_workspace/artifacts/dashboard-performance.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clinic-dashboard-performance
+          path: tests/clinic_workspace/artifacts/dashboard-performance.json

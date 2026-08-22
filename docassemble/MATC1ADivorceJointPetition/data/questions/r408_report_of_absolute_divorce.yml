@@ -128,16 +128,12 @@ fields:
     datatype: integer
     min: 1
     default: 1
-    show if: not defined("users1_marriage_number")
   - "Number of times ${ users[1] } has been married (including this marriage)": users2_marriage_number
     datatype: integer
     min: 1
     default: 1
-    show if: not defined("users2_marriage_number")
   - "${ users[0] } surname at birth or adoption": users1_name_last_at_birth
-    show if: not defined("users1_name_last_at_birth")
   - "${ users[1] } surname at birth or adoption": users2_name_last_at_birth
-    show if: not defined("users2_name_last_at_birth")
 ---
 id: r408 additional children info
 if: need_r408_addendum
