@@ -79,12 +79,13 @@ sections:
 ---
 mandatory: True
 code: |
-  al_intro_screen
-  temporary_orders_intro
-  temporary_orders_packet_order
-  temporary_orders_preview_question
-  temporary_orders_moving_party_signature
-  temporary_orders_download
+  if not showifdef("clinic_workspace_mode", False):
+    al_intro_screen
+    temporary_orders_intro
+    temporary_orders_packet_order
+    temporary_orders_preview_question
+    temporary_orders_moving_party_signature
+    temporary_orders_download
 ---
 id: temporary orders packet order
 sets: temporary_orders_packet_order
@@ -93,7 +94,8 @@ code: |
   user_role = "plaintiff"
   user_ask_role = "plaintiff"
 
-  nav.set_section("temporary_orders_case_section")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("temporary_orders_case_section")
   trial_court.division
   docket_number
   users[0].name.first
@@ -110,21 +112,24 @@ code: |
   temporary_orders_filer_address.zip
   temporary_orders_filer_phone
 
-  nav.set_section("temporary_orders_request_section")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("temporary_orders_request_section")
   temporary_orders_request_categories
   temporary_orders_requested_relief
   temporary_orders_is_emergency
   if temporary_orders_is_emergency:
     temporary_orders_emergency_reason
 
-  nav.set_section("temporary_orders_facts_section")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("temporary_orders_facts_section")
   temporary_orders_affidavit_facts
   temporary_orders_proposed_order_mode
   if temporary_orders_proposed_order_mode == "edit":
     temporary_orders_proposed_order_text
   temporary_orders_signature_date
 
-  nav.set_section("temporary_orders_service_section")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("temporary_orders_service_section")
   if temporary_orders_needs_service:
     temporary_orders_service_method
     if temporary_orders_service_method == "mail":
@@ -135,7 +140,8 @@ code: |
   else:
     temporary_orders_joint_service_notice
 
-  nav.set_section("temporary_orders_review_section")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("temporary_orders_review_section")
   temporary_orders_packet_order = True
 ---
 id: temporary orders intro

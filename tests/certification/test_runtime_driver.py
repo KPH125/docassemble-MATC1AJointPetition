@@ -1,4 +1,7 @@
+import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 import requests
@@ -8,6 +11,7 @@ from runtime_driver import (
     Limits,
     build_answer,
     field_within_cardinalities,
+    load_scenarios,
     question_variable,
     question_source_file,
     resolve_generic,
@@ -26,6 +30,20 @@ SCENARIO = {
     "interview": "docassemble.fake:data/questions/main.yml",
     "variables": {},
 }
+
+
+class ScenarioLoadingTests(unittest.TestCase):
+    def test_non_scenario_json_artifacts_are_ignored(self):
+        with TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            (directory / "001_valid.json").write_text(
+                json.dumps(SCENARIO)
+            )
+            (directory / "runtime-ledger.json").write_text("[]")
+            (directory / "coverage-audit.json").write_text(
+                '{"passed": true}'
+            )
+            self.assertEqual(load_scenarios(directory), [SCENARIO])
 
 
 def limits(**overrides):

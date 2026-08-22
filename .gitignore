@@ -23,6 +23,8 @@ tests/certification/runtime_ledger.json
 tests/certification/static_catalog.json
 tests/certification/generated_scenarios/
 tests/certification/coverage_audit.json
+test-artifacts/
+tests/clinic_workspace/artifacts/
 .envrc
 .env
 .venv

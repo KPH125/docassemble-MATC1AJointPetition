@@ -1,0 +1,146 @@
+---
+include:
+  - docassemble.AssemblyLine:assembly_line.yml
+  - docassemble.ALMassachusetts:al_massachusetts.yml
+  - docassemble.MassAccess:massaccess.yml
+---
+metadata:
+  title: Clinic divorce matters
+  short title: Clinic matters
+  description: Manage assigned Massachusetts 1A divorce matters.
+  subtitle: Start here to resume or create clinic work.
+  require login: True
+  required privileges:
+    - clinic_student
+    - clinic_supervisor
+    - clinic_admin
+    - admin
+  temporary session: True
+  sessions are unique: True
+  hidden: True
+---
+modules:
+  - .clinic_repository
+  - .clinic_workspace
+---
+features:
+  navigation: False
+  question back button: False
+  css:
+    - clinic_workspace.css
+---
+initial: True
+code: |
+  if not user_logged_in():
+    force_ask("clinic_dashboard_sign_in_required")
+  if not has_clinic_privilege(user_privileges()):
+    force_ask("clinic_dashboard_access_denied")
+  clinic_dashboard_access_checked = True
+---
+mandatory: True
+code: |
+  clinic_dashboard_access_checked
+  clinic_dashboard_page = showifdef("clinic_dashboard_page", 0)
+  clinic_dashboard_filter_name = showifdef("clinic_dashboard_filter_name", "all")
+  clinic_dashboard_status = "closed" if clinic_dashboard_filter_name == "closed" else None
+  clinic_dashboard_needs_review = clinic_dashboard_filter_name == "review"
+  clinic_dashboard_matters = list_current_user_matter_summaries(
+    status=clinic_dashboard_status,
+    needs_review=clinic_dashboard_needs_review,
+    offset=clinic_dashboard_page * 25,
+    limit=25,
+  )
+  clinic_dashboard_has_any_matters = bool(clinic_dashboard_matters)
+  if not clinic_dashboard_has_any_matters and clinic_dashboard_filter_name != "all":
+    clinic_dashboard_has_any_matters = bool(
+      list_current_user_matter_summaries(offset=0, limit=1)
+    )
+  # Keep the caseload query live. A dashboard session is intentionally unique,
+  # so treating this as a completed variable would leave it stale after a
+  # student creates or changes a matter in another interview session.
+  force_ask("clinic_dashboard_home")
+---
+event: clinic_dashboard_sign_in_required
+question: Sign in to the clinic workspace
+subquestion: |
+  This workspace is limited to authorized clinic staff.
+buttons:
+  - Sign in: signin
+  - Exit: exit
+---
+event: clinic_dashboard_access_denied
+question: Clinic access required
+subquestion: |
+  Your account does not have a clinic workspace privilege. Contact the clinic
+  administrator if you believe this is an error.
+buttons:
+  - Exit: exit
+---
+event: clinic_dashboard_home
+question: Clinic divorce matters
+subquestion: |
+  <div class="clinic-dashboard-actions">
+    ${ action_button_html(interview_url(i=CLINIC_MATTER_FILENAME, new_session=1, clinic_create=1), label="Create matter", icon="plus", color="primary") }
+    ${ action_button_html(url_action("clinic_dashboard_set_filter", filter_name="all"), label="All assigned", color="secondary") }
+    ${ action_button_html(url_action("clinic_dashboard_set_filter", filter_name="review"), label="Needs review", color="secondary") }
+    ${ action_button_html(url_action("clinic_dashboard_set_filter", filter_name="closed"), label="Closed", color="secondary") }
+  </div>
+
+  % if clinic_dashboard_matters:
+  <div class="clinic-matter-grid">
+  % for matter in clinic_dashboard_matters:
+    <article class="clinic-matter-card">
+      <div class="clinic-matter-card__header">
+        <h2>${ display_text(matter.get("safe_label")) }</h2>
+        <span class="clinic-status clinic-status--${ matter.get('overall_status', 'active') }">${ matter.get("overall_status", "active").replace("_", " ").title() }</span>
+      </div>
+      <dl>
+        <dt>Case posture</dt><dd>${ matter.get("case_posture", "unselected").replace("_", " ").title() }</dd>
+        <dt>Next action</dt><dd>${ matter.get("next_action", "review matter").replace("_", " ").title() }</dd>
+        <dt>Blocked documents</dt><dd>${ matter.get("blocked_count", 0) }</dd>
+        <dt>Due date</dt><dd>${ matter.get("due_date") or "Not set" }</dd>
+      </dl>
+      ${ action_button_html(interview_url(i=matter.get("filename"), session=matter.get("session")), label="Open matter", icon="folder-open", color="primary") }
+    </article>
+  % endfor
+  </div>
+  % else:
+    % if not clinic_dashboard_has_any_matters:
+    <section class="clinic-empty-state" aria-labelledby="clinic-empty-heading">
+      <span class="clinic-empty-state__icon" aria-hidden="true"><i class="fa-solid fa-folder-plus"></i></span>
+      <h2 id="clinic-empty-heading">No clinic matters yet</h2>
+      <p>Create the first matter for this account, or ask a supervisor if you expected an assignment to appear here.</p>
+      ${ action_button_html(interview_url(i=CLINIC_MATTER_FILENAME, new_session=1, clinic_create=1), label="Create your first matter", icon="plus", color="primary") }
+    </section>
+    % else:
+    <section class="clinic-empty-state clinic-empty-state--filtered" aria-labelledby="clinic-empty-heading">
+      <h2 id="clinic-empty-heading">${ "No matters need review" if clinic_dashboard_filter_name == "review" else "No closed matters" }</h2>
+      <p>This filter has no results. Your assigned matters are still available.</p>
+      ${ action_button_html(url_action("clinic_dashboard_set_filter", filter_name="all"), label="View all matters", icon="table-list", color="secondary") }
+    </section>
+    % endif
+  % endif
+
+  <nav class="clinic-pagination" aria-label="Caseload pages">
+    % if clinic_dashboard_page > 0:
+    ${ action_button_html(url_action("clinic_dashboard_change_page", page=clinic_dashboard_page - 1), label="Previous", icon="arrow-left", color="secondary") }
+    % endif
+    % if len(clinic_dashboard_matters) == 25:
+    ${ action_button_html(url_action("clinic_dashboard_change_page", page=clinic_dashboard_page + 1), label="Next", icon="arrow-right", color="secondary") }
+    % endif
+  </nav>
+---
+event: clinic_dashboard_set_filter
+code: |
+  clinic_dashboard_filter_name = action_argument("filter_name")
+  if clinic_dashboard_filter_name not in ("all", "review", "closed"):
+    clinic_dashboard_filter_name = "all"
+  clinic_dashboard_page = 0
+  undefine("clinic_dashboard_matters")
+  force_ask("clinic_dashboard_home")
+---
+event: clinic_dashboard_change_page
+code: |
+  clinic_dashboard_page = max(int(action_argument("page")), 0)
+  undefine("clinic_dashboard_matters")
+  force_ask("clinic_dashboard_home")

@@ -1245,6 +1245,20 @@ def load_limits(model_path: Path) -> Limits:
     )
 
 
+def load_scenarios(directory: Path) -> list[dict[str, Any]]:
+    """Load generated scenarios while ignoring other JSON audit artifacts."""
+
+    scenarios: list[dict[str, Any]] = []
+    for path in sorted(directory.glob("*.json")):
+        payload = json.loads(path.read_text())
+        if not isinstance(payload, dict):
+            continue
+        if not {"name", "interview"}.issubset(payload):
+            continue
+        scenarios.append(payload)
+    return scenarios
+
+
 def write_ledger(path: Path, server: str, results: list[dict[str, Any]]) -> dict[str, Any]:
     ledger = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -1286,7 +1300,9 @@ def main() -> int:
     workers = int(model["hang_policy"].get("runtime_workers", 1))
     if workers < 1:
         parser.error("hang_policy.runtime_workers must be at least 1")
-    scenarios = [json.loads(path.read_text()) for path in sorted(args.scenarios.glob("*.json"))]
+    scenarios = load_scenarios(args.scenarios)
+    if not scenarios:
+        parser.error(f"no generated scenarios found in {args.scenarios}")
     if args.scenario_pattern:
         try:
             scenario_pattern = re.compile(args.scenario_pattern)

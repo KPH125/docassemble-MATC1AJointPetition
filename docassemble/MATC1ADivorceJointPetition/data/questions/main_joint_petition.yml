@@ -463,17 +463,20 @@ content: |
 id: joint petition interview order
 code: |
   combined_bundle_documents_normalized
-  nav.set_section("convert_1b_to_1a")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("convert_1b_to_1a")
   has_existing_1b_action
   if has_existing_1b_action:
     combined_interview_order_motion_to_amend
 
-  nav.set_section("packet_options")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("packet_options")
   include_financial_statement
 
   interview_order_divorcejointpetition
 
-  nav.set_section("court_requests")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("court_requests")
   trial_court
   # Always show the court, even when the venue rules left no choice to make.
   trial_court_confirmed
@@ -489,11 +492,14 @@ code: |
   include_care_or_custody_affidavit = children_of_marriage
   if include_care_or_custody_affidavit:
     set_care_or_custody_affidavit_defaults
-    nav.set_section("care_or_custody_affidavit_children")
+    if not showifdef("clinic_workspace_mode", False):
+      nav.set_section("care_or_custody_affidavit_children")
     interview_order_affidavit_disclosing_care_or_custody_children
-    nav.set_section("care_or_custody_affidavit_cases")
+    if not showifdef("clinic_workspace_mode", False):
+      nav.set_section("care_or_custody_affidavit_cases")
     interview_order_affidavit_disclosing_care_or_custody_cases
-    nav.set_section("care_or_custody_affidavit_addresses")
+    if not showifdef("clinic_workspace_mode", False):
+      nav.set_section("care_or_custody_affidavit_addresses")
     interview_order_affidavit_disclosing_care_or_custody_addresses
     trigger_aff_care_or_custody_computed_variables
 
@@ -502,7 +508,8 @@ code: |
   )
   if include_child_support_guidelines_worksheet:
     set_child_support_guidelines_defaults
-    nav.set_section("child_support_guidelines")
+    if not showifdef("clinic_workspace_mode", False):
+      nav.set_section("child_support_guidelines")
     ma_child_support_guidelines_worksheet_intro
     interview_order_ma_child_support_guidelines_worksheet
     set_child_support_defaults_from_guidelines
@@ -511,7 +518,8 @@ code: |
   include_separation_agreement = separation_agreement_format == "interview"
 
   if include_financial_statement:
-    nav.set_section("financial_statement")
+    if not showifdef("clinic_workspace_mode", False):
+      nav.set_section("financial_statement")
     financial_statement_court_division = trial_court.division
     interview_order_financial_statement
 
@@ -541,11 +549,13 @@ code: |
 
   if include_findings_and_determinations:
     set_findings_and_determinations_defaults
-    nav.set_section("child_support_findings")
+    if not showifdef("clinic_workspace_mode", False):
+      nav.set_section("child_support_findings")
     cjd_305_intro
     interview_order_cjd_305
 
-  nav.set_section("fee_waiver")
+  if not showifdef("clinic_workspace_mode", False):
+    nav.set_section("fee_waiver")
   set_indigency_defaults
   ask_if_qualifies_for_fee_waiver
   if ask_if_qualifies_for_fee_waiver:
@@ -750,43 +760,45 @@ comment: |
   This block includes the logic for the standalone joint petition packet interview.
 mandatory: True
 code: |
-  al_intro_screen
-  divorcejointpetition_intro
-  joint_petition_interview_order
-  nav.set_section("review_and_sign")
-  signature_date
-  # Store anonymous data for analytics / statistics
-  store_variables_snapshot(
-      persistent=True,
-      data={
-          "zip": showifdef("users[0].address.zip"),
-          "reached_interview_end": True,
-      },
-  )
-  divorcejointpetition_preview_question
-  # Several included child interviews define the global signature_fields
-  # variable. Set the combined packet's signer matrix at the point of use so
-  # a child's standalone default cannot make represented spouses sign instead
-  # of their attorneys.
-  signature_fields = [
-      'attorneys[0].signature' if users[0].has_attorney else 'users[0].signature',
-      'attorneys[1].signature' if users[1].has_attorney else 'users[1].signature',
-  ]
-  basic_questions_signature_flow
+  if not showifdef("clinic_workspace_mode", False):
+    al_intro_screen
+    divorcejointpetition_intro
+    joint_petition_interview_order
+    if not showifdef("clinic_workspace_mode", False):
+      nav.set_section("review_and_sign")
+    signature_date
+    # Store anonymous data for analytics / statistics
+    store_variables_snapshot(
+        persistent=True,
+        data={
+            "zip": showifdef("users[0].address.zip"),
+            "reached_interview_end": True,
+        },
+    )
+    divorcejointpetition_preview_question
+    # Several included child interviews define the global signature_fields
+    # variable. Set the combined packet's signer matrix at the point of use so
+    # a child's standalone default cannot make represented spouses sign instead
+    # of their attorneys.
+    signature_fields = [
+        'attorneys[0].signature' if users[0].has_attorney else 'users[0].signature',
+        'attorneys[1].signature' if users[1].has_attorney else 'users[1].signature',
+    ]
+    basic_questions_signature_flow
 
-  combined_bundle_final_packet_normalized
-  combined_bundle_enabled_document_names
-  if not defined("divorcejointpetition_downloads_ready"):
-    if (
-        al_user_bundle.generate_downloads_with_docx_task.ready()
-        and defined("al_user_bundle._downloadable_files")
-    ):
-      divorcejointpetition_downloads_ready = True
-    else:
-      al_download_waiting_screen
+    combined_bundle_final_packet_normalized
+    combined_bundle_enabled_document_names
+    if not defined("divorcejointpetition_downloads_ready"):
+      if (
+          al_user_bundle.generate_downloads_with_docx_task.ready()
+          and defined("al_user_bundle._downloadable_files")
+      ):
+        divorcejointpetition_downloads_ready = True
+      else:
+        al_download_waiting_screen
 
-  combined_bundle_download_evidence
-  divorcejointpetition_download
+    combined_bundle_download_evidence
+    divorcejointpetition_download
 ---
 id: combined bundle final packet normalization
 code: |
