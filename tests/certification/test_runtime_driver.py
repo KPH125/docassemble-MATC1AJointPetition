@@ -1,0 +1,1142 @@
+import unittest
+from unittest.mock import Mock, patch
+
+import requests
+
+from runtime_driver import (
+    Client,
+    Limits,
+    build_answer,
+    field_within_cardinalities,
+    question_variable,
+    question_source_file,
+    resolve_generic,
+    run_scenario,
+    serialized_collection_count,
+    serialized_object_choice,
+    serialized_object_choices,
+    serialized_path_cardinality,
+    serialized_path_value,
+    source_document_fingerprint,
+)
+
+
+SCENARIO = {
+    "name": "fake",
+    "interview": "docassemble.fake:data/questions/main.yml",
+    "variables": {},
+}
+
+
+def limits(**overrides):
+    values = {
+        "request_timeout": 1,
+        "scenario_timeout": 10,
+        "max_steps": 10,
+        "max_same_screen": 2,
+        "max_same_state_visits": 2,
+        "download_task_timeout": 5,
+    }
+    values.update(overrides)
+    return Limits(**values)
+
+
+class FakeClient:
+    def __init__(
+        self,
+        questions,
+        actions=None,
+        terminal_variables=None,
+        uploaded_file_evidence=None,
+    ):
+        self.questions = iter(questions)
+        self.actions = actions or {}
+        self.terminal_variables = terminal_variables or {
+            "divorcejointpetition_downloads_ready": True,
+        }
+        self.uploaded_file_evidence = uploaded_file_evidence
+        self.pending_action = None
+
+    def new_session(self, interview):
+        return "session", "", interview
+
+    def question(self, interview, session, secret):
+        if self.pending_action:
+            value = self.actions[self.pending_action]
+            self.pending_action = None
+        else:
+            value = next(self.questions)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    def answer(
+        self,
+        interview,
+        session,
+        secret,
+        variables,
+        event_list=None,
+        question_name=None,
+    ):
+        return {}
+
+    def snapshot(
+        self,
+        interview,
+        session,
+        secret,
+        *,
+        values=None,
+        counts=None,
+        files=None,
+    ):
+        result = {
+            name: self.terminal_variables[name]
+            for name in (values or [])
+            if name in self.terminal_variables
+        }
+        for name in counts or []:
+            if name not in self.terminal_variables:
+                continue
+            value = self.terminal_variables[name]
+            count = serialized_collection_count(value)
+            result[name] = value if count is None else count
+        if files:
+            result["uploaded_files"] = {
+                name: (
+                    self.uploaded_file_evidence.get(name, {})
+                    if self.uploaded_file_evidence is not None
+                    else {"retrievable": True, "filename": "fixture.pdf"}
+                )
+                for name in files
+            }
+        return result
+
+    def action(self, interview, session, secret, action, arguments=None):
+        self.pending_action = action
+
+    def delete(self, interview, session, secret):
+        return None
+
+
+class RuntimeDriverTests(unittest.TestCase):
+    def test_generic_object_field_resolves_to_nested_list(self):
+        self.assertEqual(
+            resolve_generic(
+                "x.selected_types",
+                "users[0].income_list.selected_types",
+            ),
+            "users[0].income_list.selected_types",
+        )
+
+    def test_generic_list_item_fields_resolve_to_same_nested_element(self):
+        sought = "users[1].expense_list[2].source"
+        self.assertEqual(
+            resolve_generic("x[i].source", sought),
+            "users[1].expense_list[2].source",
+        )
+        self.assertEqual(
+            resolve_generic("x[i].value", sought),
+            "users[1].expense_list[2].value",
+        )
+
+    def test_generic_nested_name_fields_keep_the_object_root(self):
+        sought = "other_parties[0].name.first"
+        self.assertEqual(
+            resolve_generic("x.name.last", sought),
+            "other_parties[0].name.last",
+        )
+
+    def test_generic_nested_checkboxes_use_the_concrete_scenario_value(self):
+        question = {
+            "event_list": ["users[0].income_list.selected_types"],
+            "fields": [
+                {
+                    "variable_name": "x.selected_types",
+                    "datatype": "checkboxes",
+                    "choices": [
+                        {
+                            "label": "Wages",
+                            "value": True,
+                            "variable_name": "x.selected_types['wages']",
+                        }
+                    ],
+                }
+            ],
+        }
+        answer = build_answer(
+            question,
+            {"users[0].income_list.selected_types": {"wages": True}},
+        )
+        self.assertEqual(set(answer), {"x.selected_types"})
+        self.assertEqual(
+            answer["x.selected_types"]["instanceName"],
+            "users[0].income_list.selected_types",
+        )
+        self.assertEqual(answer["x.selected_types"]["elements"], {"wages": True})
+
+    def test_question_variable_prefers_concrete_event_for_generic_screen(self):
+        question = {
+            "question_variable_name": "users[i].income_schedule_triggers",
+            "event_list": ["users[1].income_schedule_triggers"],
+        }
+
+        self.assertEqual(
+            question_variable(question),
+            "users[1].income_schedule_triggers",
+        )
+
+    def test_generic_screen_uses_modeled_values_for_concrete_person(self):
+        question = {
+            "question_variable_name": "users[i].income_schedule_triggers",
+            "event_list": ["users[1].income_schedule_triggers"],
+            "fields": [
+                {
+                    "variable_name": "users[i].has_self_employment_income",
+                    "datatype": "boolean",
+                    "inputtype": "yesnoradio",
+                },
+                {
+                    "variable_name": "users[i].has_rental_income",
+                    "datatype": "boolean",
+                    "inputtype": "yesnoradio",
+                },
+            ],
+        }
+
+        self.assertEqual(
+            build_answer(
+                question,
+                {
+                    "users[1].has_self_employment_income": False,
+                    "users[1].has_rental_income": False,
+                },
+            ),
+            {
+                "users[1].has_self_employment_income": False,
+                "users[1].has_rental_income": False,
+                "users[1].income_schedule_triggers": True,
+            },
+        )
+
+    def test_client_uses_valid_snapshot_event_identifier(self):
+        client = Client("http://server", "key", 10)
+        client.http = Mock()
+        client.http.post.return_value = Mock(
+            json=Mock(return_value={"answer": True})
+        )
+
+        result = client.snapshot(
+            "docassemble.example:data/questions/main.yml",
+            "session",
+            "secret",
+            values=["answer"],
+        )
+
+        self.assertEqual(result, {"answer": True})
+        post_data = client.http.post.call_args.kwargs["data"]
+        self.assertEqual(post_data["action"], "combined_certification_snapshot")
+        self.assertNotIn(" ", post_data["action"])
+
+    def test_client_saves_answer_before_fetching_next_question(self):
+        client = Client("http://server", "key", 10)
+        client.http = Mock()
+        client.http.post.return_value = Mock()
+        client.http.get.return_value = Mock(
+            json=Mock(return_value={"id": "next"})
+        )
+
+        result = client.answer(
+            "docassemble.example:data/questions/main.yml",
+            "session",
+            "secret",
+            {"answer": True},
+            ["answer"],
+        )
+
+        self.assertEqual(result, {"id": "next"})
+        post_data = client.http.post.call_args.kwargs["data"]
+        self.assertEqual(post_data["question"], 0)
+        self.assertEqual(post_data["variables"], '{"answer":true}')
+        client.http.get.assert_called_once()
+
+    def test_client_upload_uses_single_evaluated_api_request(self):
+        client = Client("http://server", "key", 10)
+        client.http = Mock()
+        client.http.post.return_value = Mock(
+            json=Mock(return_value={"id": "next"})
+        )
+        result = client.answer(
+            "docassemble.example:data/questions/main.yml",
+            "session",
+            "secret",
+            {
+                "uploaded_document": {
+                    "$file": "docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf"
+                }
+            },
+        )
+
+        self.assertEqual(result, {"id": "next"})
+        post_data = client.http.post.call_args.kwargs["data"]
+        self.assertEqual(post_data["question"], 1)
+        self.assertIn("uploaded_document", client.http.post.call_args.kwargs["files"])
+        client.http.get.assert_not_called()
+
+    def test_declared_early_terminal_passes_without_packet_assertions(self):
+        terminal = {
+            "id": "taxes no agreement exit",
+            "questionType": "deadend",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_terminal_ids": ["taxes no agreement exit"],
+            "terminal_assertions": False,
+        }
+
+        result = run_scenario(FakeClient([terminal]), scenario, limits())
+
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["terminal_id"], "taxes no agreement exit")
+        self.assertNotIn("terminal_evidence", result)
+
+    def test_route_screen_expectations_reject_wrong_signer(self):
+        wrong_signer = {
+            "id": "sign party A",
+            "questionType": "signature",
+            "fields": [
+                {"variable_name": "users[0].signature", "datatype": "signature"}
+            ],
+        }
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "required_screen_ids": ["sign attorney for party A"],
+            "forbidden_screen_ids": ["sign party A"],
+        }
+
+        result = run_scenario(FakeClient([wrong_signer, terminal]), scenario, limits())
+
+        self.assertEqual(result["failure"], "screen_expectation_mismatch")
+        self.assertEqual(
+            result["missing_required_screen_ids"], ["sign attorney for party A"]
+        )
+        self.assertEqual(result["forbidden_screen_ids_seen"], ["sign party A"])
+
+    def test_bundle_membership_mismatch_fails_terminal(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_bundle_documents": {"required_attachment": True},
+        }
+        result = run_scenario(FakeClient([terminal]), scenario, limits())
+        self.assertEqual(result["failure"], "bundle_document_mismatch")
+
+    def test_exact_enabled_bundle_and_background_download_pass_terminal(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        client = FakeClient(
+            [terminal],
+            terminal_variables={
+                "divorcejointpetition_downloads_ready": True,
+                "combined_bundle_enabled_document_names": ["required_attachment"],
+                "combined_bundle_download_evidence": {
+                    "documents": [
+                        {
+                            "title": "Required",
+                            "files": [
+                                {
+                                    "format": "pdf",
+                                    "filename": "required.pdf",
+                                    "extension": "pdf",
+                                    "ok": True,
+                                }
+                            ],
+                        }
+                    ],
+                    "bundle_files": [],
+                },
+            },
+        )
+        scenario = {
+            **SCENARIO,
+            "expected_bundle_documents": {"required_attachment": True},
+        }
+        result = run_scenario(client, scenario, limits())
+        self.assertEqual(result["status"], "pass")
+        self.assertIsNone(result["failure"])
+
+    def test_download_evidence_requires_explicit_file_success(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        client = FakeClient(
+            [terminal],
+            terminal_variables={
+                "divorcejointpetition_downloads_ready": True,
+                "combined_bundle_enabled_document_names": ["required_attachment"],
+                "combined_bundle_download_evidence": {
+                    "documents": [
+                        {
+                            "title": "Required",
+                            "files": [
+                                {
+                                    "format": "pdf",
+                                    "filename": "required.pdf",
+                                    "extension": "pdf",
+                                }
+                            ],
+                        }
+                    ],
+                    "bundle_files": [],
+                },
+            },
+        )
+        scenario = {
+            **SCENARIO,
+            "expected_bundle_documents": {"required_attachment": True},
+        }
+        result = run_scenario(client, scenario, limits())
+        self.assertEqual(result["failure"], "bundle_document_mismatch")
+        self.assertIn(
+            "<failed-downloads>", result["bundle_document_mismatches"]
+        )
+
+    def test_uploaded_file_must_remain_retrievable_at_terminal(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        client = FakeClient(
+            [terminal],
+            uploaded_file_evidence={"uploaded_document": {"retrievable": False}},
+        )
+        scenario = {
+            **SCENARIO,
+            "variables": {
+                "uploaded_document": {
+                    "$file": "docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf"
+                }
+            },
+        }
+
+        result = run_scenario(client, scenario, limits())
+
+        self.assertEqual(result["failure"], "uploaded_file_not_retrievable")
+        self.assertEqual(
+            result["failed_uploads"],
+            {"uploaded_document": {"retrievable": False}},
+        )
+
+    def test_question_source_file_uses_included_file_history(self):
+        question = {
+            "source": {
+                "history": {
+                    "source_file": "docassemble.child:data/questions/child.yml",
+                    "source_code": "question: Child question",
+                },
+                "readability": {"score": 1},
+            }
+        }
+        self.assertEqual(
+            question_source_file(question, SCENARIO["interview"]),
+            "docassemble.child:data/questions/child.yml",
+        )
+
+    def test_question_source_file_falls_back_to_root_interview(self):
+        self.assertEqual(
+            question_source_file({"source": {"history": {}}}, SCENARIO["interview"]),
+            SCENARIO["interview"],
+        )
+
+    def test_source_document_fingerprint_ignores_yaml_formatting(self):
+        first = {"source": {"history": {"source_code": "id: one\nquestion: Hello\n"}}}
+        second = {"source": {"history": {"source_code": "question: Hello\nid: one\n"}}}
+        self.assertEqual(
+            source_document_fingerprint(first),
+            source_document_fingerprint(second),
+        )
+
+    def test_source_document_fingerprint_requires_debug_source(self):
+        self.assertIsNone(source_document_fingerprint({"source": {"history": {}}}))
+
+    def test_serialized_collection_count(self):
+        self.assertEqual(
+            serialized_collection_count({"_class": "DAList", "elements": [{}, {}]}),
+            2,
+        )
+        self.assertEqual(serialized_collection_count([]), 0)
+        self.assertIsNone(serialized_collection_count("not a collection"))
+
+    def test_serialized_nested_collection_cardinalities(self):
+        variables = {
+            "children": {
+                "elements": [
+                    {"previous_addresses": {"elements": [{}, {}]}},
+                    {"previous_addresses": {"elements": []}},
+                ]
+            }
+        }
+        self.assertEqual(
+            serialized_path_cardinality(variables, "children[*].previous_addresses"),
+            [2, 0],
+        )
+
+    def test_missing_nested_collection_serializes_as_zero(self):
+        variables = {"children": {"elements": [{}, {}]}}
+        self.assertEqual(
+            serialized_path_cardinality(variables, "children[*].previous_addresses"),
+            [0, 0],
+        )
+
+    def test_serialized_path_value_resolves_nested_list_member(self):
+        child = {"_class": "example.Child", "instanceName": "children[1]"}
+        variables = {"children": {"elements": [{}, child]}}
+        self.assertEqual(serialized_path_value(variables, "children[1]"), child)
+
+    def test_rendered_list_collect_rows_stop_at_modeled_cardinality(self):
+        cardinalities = {
+            "children": {"variable": "children", "expected": 2},
+        }
+        self.assertTrue(field_within_cardinalities("children[1].name.first", cardinalities))
+        self.assertFalse(field_within_cardinalities("children[2].name.first", cardinalities))
+
+    def test_nested_rendered_rows_stop_at_each_parent_cardinality(self):
+        cardinalities = {
+            "addresses": {
+                "variable": "children[*].previous_addresses",
+                "expected": [2, 0],
+            },
+        }
+        self.assertTrue(
+            field_within_cardinalities(
+                "children[0].previous_addresses[1].address",
+                cardinalities,
+            )
+        )
+        self.assertFalse(
+            field_within_cardinalities(
+                "children[1].previous_addresses[0].address",
+                cardinalities,
+            )
+        )
+
+    def test_object_choices_are_serialized_as_a_gathered_list(self):
+        child = {
+            "_class": "docassemble.AssemblyLine.al_general.ALIndividual",
+            "instanceName": "children[0]",
+            "letter": "A",
+        }
+        target = {
+            "_class": "docassemble.AssemblyLine.al_general.ALPeopleList",
+            "instanceName": "proceedings[0].children",
+            "elements": [],
+        }
+        variables = {
+            "children": {"elements": [child]},
+            "proceedings": {"elements": [{"children": target}]},
+        }
+        result = serialized_object_choices(
+            "proceedings[0].children",
+            [{"label": "Child", "value": "children[0]"}],
+            ["children[0]"],
+            variables,
+        )
+        self.assertEqual(result["_class"], target["_class"])
+        self.assertEqual(result["elements"], [child])
+        self.assertTrue(result["gathered"])
+        self.assertFalse(result["there_is_another"])
+
+    def test_single_object_choice_is_serialized_from_current_variables(self):
+        court = {
+            "_class": "docassemble.AssemblyLine.al_general.ALCourt",
+            "instanceName": "all_courts[52]",
+            "name": "Essex Probate and Family Court",
+        }
+        result = serialized_object_choice(
+            "trial_court",
+            [{"label": court["name"], "value": "all_courts[52]"}],
+            "all_courts[52]",
+            {"all_courts": {"elements": [None] * 52 + [court]}},
+        )
+        self.assertEqual(result, court)
+        self.assertIsNot(result, court)
+
+    def test_settrue_field_defaults_to_boolean_true(self):
+        question = {
+            "questionType": "settrue",
+            "fields": [{"variable_name": "intro_complete", "datatype": "text"}],
+        }
+        self.assertEqual(build_answer(question, {}), {"intro_complete": True})
+
+    def test_ssn_fields_use_a_valid_representative(self):
+        question = {
+            "fields": [{"variable_name": "users[0].ssn", "datatype": "ssn"}],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"users[0].ssn": "123-45-6789"},
+        )
+
+    def test_yesnomaybe_defaults_to_boolean_false_and_hides_followup(self):
+        question = {
+            "event_list": ["children[0].gals.target_number"],
+            "fields": [
+                {
+                    "variable_name": "children[i].has_gal",
+                    "datatype": "threestate",
+                    "inputtype": "yesnomaybe",
+                },
+                {
+                    "variable_name": "children[i].gals.target_number",
+                    "datatype": "integer",
+                    "show_if_var": "children[i].has_gal",
+                    "show_if_val": "True",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"children[0].has_gal": False},
+        )
+
+    def test_explicit_sought_hidden_value_is_submitted_for_api_traversal(self):
+        question = {
+            "event_list": ["children[0].gals.target_number"],
+            "fields": [
+                {
+                    "variable_name": "children[i].has_gal",
+                    "datatype": "threestate",
+                    "inputtype": "yesnomaybe",
+                },
+                {
+                    "variable_name": "children[i].gals.target_number",
+                    "datatype": "integer",
+                    "show_if_var": "children[i].has_gal",
+                    "show_if_val": "True",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {
+                    "children[i].has_gal": False,
+                    "children[i].gals.target_number": 0,
+                },
+            ),
+            {
+                "children[0].has_gal": False,
+                "children[0].gals.target_number": 0,
+            },
+        )
+
+    def test_object_choice_is_omitted_when_same_screen_builds_nested_object(self):
+        question = {
+            "event_list": ["children[0].address.address"],
+            "fields": [
+                {
+                    "variable_name": "children[i].address",
+                    "datatype": "object",
+                    "choices": [{"label": "Home", "value": "marital_home"}],
+                },
+                {
+                    "variable_name": "children[i].address.address",
+                    "datatype": "text",
+                },
+                {
+                    "variable_name": "children[i].address.city",
+                    "datatype": "text",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {
+                "children[0].address.address": "Test",
+                "children[0].address.city": "Test",
+            },
+        )
+
+    def test_object_radio_is_omitted_when_same_screen_builds_nested_object(self):
+        question = {
+            "event_list": ["children[0].gals[0].name.first"],
+            "fields": [
+                {
+                    "variable_name": "children[i].gals[j]",
+                    "datatype": "object_radio",
+                    "choices": [{"label": "Someone else", "value": "Someone else"}],
+                },
+                {
+                    "variable_name": "children[i].gals[j].name.first",
+                    "datatype": "text",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"children[0].gals[0].name.first": "Test"},
+        )
+
+    def test_build_answer_omits_rows_beyond_modeled_count(self):
+        question = {
+            "fields": [
+                {"variable_name": "children[0].name.first", "datatype": "text"},
+                {"variable_name": "children[1].name.first", "datatype": "text"},
+                {"variable_name": "children[2].name.first", "datatype": "text"},
+            ],
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {},
+                expected_cardinalities={
+                    "children": {"variable": "children", "expected": 2},
+                },
+            ),
+            {
+                "children[0].name.first": "Test",
+                "children[1].name.first": "Test",
+            },
+        )
+
+    def test_string_false_show_if_value_keeps_visible_field(self):
+        question = {
+            "fields": [
+                {"variable_name": "documented", "datatype": "boolean"},
+                {
+                    "variable_name": "format",
+                    "datatype": "radio",
+                    "choices": [{"label": "Upload", "value": "upload"}],
+                    "show_if_var": "documented",
+                    "show_if_val": "True",
+                },
+                {
+                    "variable_name": "format",
+                    "datatype": "radio",
+                    "choices": [{"label": "Later", "value": "wait"}],
+                    "show_if_var": "documented",
+                    "show_if_val": "False",
+                },
+            ]
+        }
+        answer = build_answer(question, {"documented": False, "format": "wait"})
+        self.assertEqual(answer, {"documented": False, "format": "wait"})
+
+    def test_unconditional_duplicate_field_survives_hidden_conditional_variant(self):
+        question = {
+            "fields": [
+                {"variable_name": "user_grade_school_completed", "datatype": "boolean"},
+                {"variable_name": "show_grade_detail", "datatype": "boolean"},
+                {
+                    "variable_name": "user_grade_school_completed",
+                    "datatype": "boolean",
+                    "show_if_var": "show_grade_detail",
+                    "show_if_val": "True",
+                },
+            ]
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {
+                    "user_grade_school_completed": True,
+                    "show_grade_detail": False,
+                },
+            ),
+            {
+                "user_grade_school_completed": True,
+                "show_grade_detail": False,
+            },
+        )
+
+    def test_hide_if_field_is_kept_when_condition_does_not_match(self):
+        question = {
+            "fields": [
+                {
+                    "variable_name": "case_status",
+                    "datatype": "radio",
+                    "choices": [
+                        {"label": "Restraining order", "value": "restraining"}
+                    ],
+                },
+                {
+                    "variable_name": "user_role",
+                    "datatype": "radio",
+                    "choices": [{"label": "Party", "value": "party"}],
+                    "show_if_sign": 0,
+                    "show_if_var": "case_status",
+                    "show_if_val": "adoption",
+                },
+            ]
+        }
+        self.assertEqual(
+            build_answer(
+                question,
+                {"case_status": "restraining", "user_role": "party"},
+            ),
+            {"case_status": "restraining", "user_role": "party"},
+        )
+
+    def test_expression_show_if_does_not_hide_server_visible_fields(self):
+        question = {
+            "fields": [
+                {
+                    "variable_name": "users1_gender",
+                    "datatype": "text",
+                    "inputtype": "radio",
+                    "choices": [{"label": "Male", "value": "male"}],
+                    "show_if_var": 'not showifdef("users1_gender")',
+                    "show_if_val": "True",
+                }
+            ],
+        }
+        self.assertEqual(build_answer(question, {}), {"users1_gender": "male"})
+
+    def test_unmodeled_list_controls_default_to_no(self):
+        question = {
+            "fields": [{
+                "variable_name": "children[0].previous_addresses.there_is_another",
+                "datatype": "yesnoradio",
+            }]
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"children[0].previous_addresses.there_is_another": False},
+        )
+
+    def test_index_normalized_modeled_answer_applies_to_each_list_member(self):
+        question = {
+            "fields": [{
+                "variable_name": "children[2].previous_addresses.there_are_any",
+                "datatype": "yesnoradio",
+            }]
+        }
+        self.assertEqual(
+            build_answer(question, {"children[i].previous_addresses.there_are_any": True}),
+            {"children[2].previous_addresses.there_are_any": True},
+        )
+
+    def test_event_list_resolves_source_iterator_to_concrete_index(self):
+        question = {
+            "event_list": ["users[1].employer_address_street"],
+            "fields": [
+                {
+                    "variable_name": "users[i].employer_address.address",
+                    "datatype": "text",
+                },
+                {
+                    "variable_name": "users[i].employer_address.city",
+                    "datatype": "text",
+                },
+            ],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {
+                "users[1].employer_address.address": "Test",
+                "users[1].employer_address.city": "Test",
+                "users[1].employer_address_street": True,
+            },
+        )
+
+    def test_modeled_sequence_controls_repeated_list_answers(self):
+        question = {
+            "fields": [{
+                "variable_name": "items.there_is_another",
+                "datatype": "yesnoradio",
+            }]
+        }
+        positions = {}
+        variables = {"items.there_is_another": {"$sequence": [True, False]}}
+        self.assertEqual(build_answer(question, variables, positions), {"items.there_is_another": True})
+        self.assertEqual(build_answer(question, variables, positions), {"items.there_is_another": False})
+        with self.assertRaisesRegex(ValueError, "sequence exhausted"):
+            build_answer(question, variables, positions)
+
+    def test_code_button_uses_the_diversion_event_variable(self):
+        question = {
+            "id": "warning",
+            "questionType": "multiple_choice",
+            "event_list": ["warning_acknowledged"],
+            "fields": [],
+        }
+        self.assertEqual(
+            build_answer(question, {}),
+            {"warning_acknowledged": True},
+        )
+
+    def test_consecutive_repeated_state_is_a_hang_failure(self):
+        stuck = {
+            "id": "same screen",
+            "questionType": "question",
+            "question_variable_name": "continue_here",
+            "fields": [],
+        }
+        result = run_scenario(FakeClient([stuck, stuck, stuck]), SCENARIO, limits())
+        self.assertEqual(result["failure"], "consecutive_repeated_state")
+
+    def test_advancing_modeled_list_sequence_is_not_a_false_hang(self):
+        another = {
+            "id": "another item",
+            "questionType": "question",
+            "fields": [{
+                "variable_name": "items.there_is_another",
+                "datatype": "yesnoradio",
+            }],
+        }
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "variables": {
+                "items.there_is_another": {"$sequence": [True, True, False]},
+            },
+        }
+        result = run_scenario(
+            FakeClient([another, another, another, terminal]),
+            scenario,
+            limits(max_steps=5),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertIsNone(result["failure"])
+
+    def test_request_timeout_is_a_hang_failure(self):
+        result = run_scenario(
+            FakeClient([requests.Timeout("server stopped responding")]),
+            SCENARIO,
+            limits(),
+        )
+        self.assertEqual(result["failure"], "request_timeout")
+
+    def test_http_error_records_status_and_response_body(self):
+        response = requests.Response()
+        response.status_code = 400
+        response._content = b"Failure to assemble interview"
+        error = requests.HTTPError("400 Client Error", response=response)
+        result = run_scenario(FakeClient([error]), SCENARIO, limits())
+        self.assertEqual(result["failure"], "http_error")
+        self.assertEqual(result["response_status_code"], 400)
+        self.assertEqual(result["response"], "Failure to assemble interview")
+
+    def test_error_screen_fails(self):
+        error = {
+            "id": "custom error action",
+            "questionType": "deadend",
+            "questionText": "There was an error",
+            "subquestionText": "NameError: missing_variable",
+        }
+        result = run_scenario(FakeClient([error]), SCENARIO, limits())
+        self.assertEqual(result["failure"], "error_screen")
+
+    def test_undefined_variable_records_the_exact_name(self):
+        error = {
+            "questionType": "undefined_variable",
+            "variable": "missing_variable",
+            "message_log": [{"priority": "error", "message": "not defined"}],
+        }
+        result = run_scenario(FakeClient([error]), SCENARIO, limits())
+        self.assertEqual(result["failure"], "error_screen")
+        self.assertEqual(result["steps"][0]["undefined_variable"], "missing_variable")
+        self.assertEqual(result["steps"][0]["message_log"][0]["priority"], "error")
+
+    def test_download_screen_passes(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        result = run_scenario(FakeClient([terminal]), SCENARIO, limits())
+        self.assertEqual(result["status"], "pass")
+        self.assertIsNone(result["failure"])
+        self.assertTrue(result["terminal_evidence"]["divorcejointpetition_downloads_ready"])
+
+    def test_unexpected_normal_terminal_fails(self):
+        terminal = {
+            "id": "not the expected ending",
+            "questionType": "deadend",
+            "fields": [],
+        }
+        scenario = {**SCENARIO, "expected_terminal_ids": ["download divorce joint petition"]}
+        result = run_scenario(FakeClient([terminal]), scenario, limits())
+        self.assertEqual(result["failure"], "unexpected_terminal")
+
+    def test_terminal_bundle_evidence_mismatch_fails(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_terminal_evidence": {"include_financial_statement": True},
+        }
+        result = run_scenario(FakeClient([terminal]), scenario, limits())
+        self.assertEqual(result["failure"], "terminal_evidence_mismatch")
+        self.assertEqual(
+            result["terminal_evidence_mismatches"]["include_financial_statement"],
+            {"expected": True, "observed": "<missing>"},
+        )
+
+    def test_terminal_cardinality_mismatch_fails(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_cardinalities": {
+                "children": {"variable": "children", "expected": 2},
+            },
+        }
+        client = FakeClient(
+            [terminal],
+            terminal_variables={
+                "divorcejointpetition_downloads_ready": True,
+                "children": {"_class": "DAList", "elements": [{}]},
+            },
+        )
+        result = run_scenario(client, scenario, limits())
+        self.assertEqual(result["failure"], "cardinality_evidence_mismatch")
+        self.assertEqual(
+            result["cardinality_evidence_mismatches"]["children"]["observed"],
+            1,
+        )
+
+    def test_absent_optional_collection_counts_as_zero(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_cardinalities": {
+                "children": {"variable": "children", "expected": 0},
+            },
+        }
+        result = run_scenario(
+            FakeClient(
+                [terminal],
+                terminal_variables={"divorcejointpetition_downloads_ready": True},
+            ),
+            scenario,
+            limits(),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["cardinality_evidence"]["children"]["observed"], 0)
+
+    def test_absent_wildcard_collection_counts_as_empty_vector(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "expected_cardinalities": {
+                "proceeding_other_parties": {
+                    "variable": "proceedings[*].other_parties",
+                    "expected": [],
+                },
+            },
+        }
+        result = run_scenario(
+            FakeClient(
+                [terminal],
+                terminal_variables={"divorcejointpetition_downloads_ready": True},
+            ),
+            scenario,
+            limits(),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(
+            result["cardinality_evidence"]["proceeding_other_parties"]["observed"],
+            [],
+        )
+
+    def test_declared_event_probe_adds_its_screen_to_coverage(self):
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        review = {
+            "id": "divorce joint petition review screen",
+            "questionType": "review",
+            "fields": [],
+        }
+        scenario = {
+            **SCENARIO,
+            "probe_events": [{
+                "event": "review_divorcejointpetition",
+                "expected_id": "divorce joint petition review screen",
+            }],
+        }
+        result = run_scenario(
+            FakeClient([terminal], {"review_divorcejointpetition": review}),
+            scenario,
+            limits(),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertIn("divorce joint petition review screen", result["seen_screen_ids"])
+
+    @patch("runtime_driver.time.sleep", return_value=None)
+    def test_download_waiting_screen_is_not_a_terminal_pass(self, _sleep):
+        waiting = {
+            "id": "waiting screen",
+            "questionType": "event",
+            "event_list": ["al_download_waiting_screen"],
+            "fields": [],
+        }
+        terminal = {
+            "id": "download divorce joint petition",
+            "questionType": "event",
+            "fields": [],
+        }
+        result = run_scenario(
+            FakeClient([waiting, waiting, terminal]),
+            SCENARIO,
+            limits(max_steps=4),
+        )
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual([step["id"] for step in result["steps"]], [
+            "waiting screen",
+            "waiting screen",
+            "download divorce joint petition",
+        ])
+
+    @patch("runtime_driver.time.monotonic", side_effect=[0, 0, 0, 6, 6])
+    def test_download_waiting_screen_has_a_specific_timeout(self, _monotonic):
+        waiting = {
+            "id": "waiting screen",
+            "questionType": "event",
+            "event_list": ["al_download_waiting_screen"],
+            "fields": [],
+        }
+        result = run_scenario(FakeClient([waiting]), SCENARIO, limits())
+        self.assertEqual(result["failure"], "download_task_timeout")
+
+
+if __name__ == "__main__":
+    unittest.main()

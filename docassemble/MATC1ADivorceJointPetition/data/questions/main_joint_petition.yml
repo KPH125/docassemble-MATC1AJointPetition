@@ -175,6 +175,35 @@ code: |
   users[0].separation_agreement_role = "party_a"
   users[1].separation_agreement_role = "party_b"
 ---
+# Standalone child interviews initialize some documents with enabled=True,
+# which AssemblyLine preserves as always_enabled. The combined parent owns its
+# packet composition, so clear that standalone override before evaluating the
+# per-route .enabled definitions below.
+code: |
+  for conditional_document in (
+      motion_to_amend_attachment,
+      r408_attachment,
+      affidavitofindigency_attachment,
+      child_care_or_custody_disclosure_affidavit_next_steps,
+      affidavit_of_care_or_custody_attachment,
+      ma_child_support_guidelines_worksheet_attachment,
+      cjd_305_attachment,
+      users[0].financial_statement_short_attachment,
+      users[0].financial_statement_long_attachment,
+      users[0].financial_statement_schedule_a_attachment,
+      users[0].financial_statement_schedule_b_attachment,
+      users[1].financial_statement_short_attachment,
+      users[1].financial_statement_long_attachment,
+      users[1].financial_statement_schedule_a_attachment,
+      users[1].financial_statement_schedule_b_attachment,
+      a_divorce_agreement_Post_interview_instructions,
+      a_divorce_agreement_attachment,
+  ):
+    conditional_document.always_enabled = False
+    if hasattr(conditional_document.cache, "enabled"):
+      del conditional_document.cache.enabled
+  combined_bundle_documents_normalized = True
+---
 id: existing 1B action screener
 question: |
   Do you already have a divorce case filed?
@@ -280,6 +309,48 @@ code: |
   al_user_bundle._downloadable_files = action_argument("download_response")
   divorcejointpetition_downloads_ready = True
   background_response()
+---
+# The certification client uses this authenticated, read-only action instead
+# of GET /api/session. Serializing the complete interview dictionary traverses
+# every ALDocument in the session and can itself generate unrelated previews.
+# Return only the requested values and plain collection counts so observation
+# cannot change packet membership or exhaust the runtime under test.
+event: combined_certification_snapshot
+code: |
+  certification_snapshot = {}
+  for variable_name in action_argument("values") or []:
+    if defined(variable_name):
+      certification_value = value(variable_name)
+      certification_snapshot[variable_name] = (
+        certification_value.as_serializable()
+        if hasattr(certification_value, "as_serializable")
+        else certification_value
+      )
+  for variable_name in action_argument("counts") or []:
+    if defined(variable_name):
+      certification_collection = value(variable_name)
+      certification_snapshot[variable_name] = len(
+        certification_collection.elements
+        if hasattr(certification_collection, "elements")
+        else certification_collection
+      )
+    else:
+      certification_snapshot[variable_name] = 0
+  certification_snapshot["uploaded_files"] = {}
+  for variable_name in action_argument("files") or []:
+    certification_file_list = value(variable_name)
+    certification_file = certification_file_list[0]
+    # path() performs the same SavedFile retrieval that Docassemble's PDF
+    # preview worker needs. A missing database/file-store record therefore
+    # fails this action instead of letting an upload route pass on metadata.
+    certification_file.path()
+    certification_snapshot["uploaded_files"][variable_name] = {
+      "retrievable": bool(certification_file.ok),
+      "filename": certification_file.filename,
+      "extension": certification_file.extension,
+      "mimetype": certification_file.mimetype,
+    }
+  json_response(certification_snapshot)
 ---
 code: |
   enable_al_nav_sections = True
@@ -391,10 +462,11 @@ content: |
 ---
 id: joint petition interview order
 code: |
+  combined_bundle_documents_normalized
   nav.set_section("convert_1b_to_1a")
   has_existing_1b_action
   if has_existing_1b_action:
-    interview_order_motion_to_amend
+    combined_interview_order_motion_to_amend
 
   nav.set_section("packet_options")
   include_financial_statement
@@ -447,9 +519,11 @@ code: |
     # The parent interview has already collected this shared child information.
     has_children = children_of_marriage
     if has_children:
-      children.target_number = len(children)
+      children.ask_number = True
+      children.target_number = children_of_marriage_number
     interview_order_a_divorce_agreement
-    set_petition_merger_survival_from_agreement
+
+  set_petition_merger_survival_values
 
   # Findings and Determinations (CJD 305) is only needed when the parties
   # deviate from the child support guidelines amount. Waiving support is a
@@ -476,18 +550,116 @@ code: |
   ask_if_qualifies_for_fee_waiver
   if ask_if_qualifies_for_fee_waiver:
     ask_affidavit_questions
+    if not is_indigent:
+      # The standalone affidavit wrapper explains this outcome, but the
+      # combined parent includes only affidavit_body.yml. Do not silently
+      # return to the divorce packet when the user does not qualify.
+      doesnt_qualify_interstitial
 
   joint_petition_interview_order = True
 ---
-depends on:
-  - has_children
-  - provisions_that_merge
+comment: |
+  The standalone motion interview swaps users.elements when the original 1B
+  plaintiff should be Party B. Moving ALIndividual objects between DAList
+  indices leaves their instance names pointing at the old indices and caused a
+  certified al_court_bundle assembly cycle. In the combined interview the
+  parent owns this integration order. Swap only the already-collected name
+  values, before collecting every remaining party attribute, so each object
+  keeps its canonical users[0]/users[1] identity.
+id: combined interview order motion to amend
 code: |
-  request_merge_agreement = (
-    has_children or not provisions_that_merge.all_false()
-  )
-  request_survive_agreement = True
-  set_petition_merger_survival_from_agreement = True
+  allowed_courts = ['Probate and Family Court']
+  user_role = "plaintiff"
+  user_ask_role = "plaintiff"
+
+  users[0].name.first
+  users[1].name.first
+  plaintiff_is_party_a
+  if not plaintiff_is_party_a:
+    users[0].name.first, users[1].name.first = users[1].name.first, users[0].name.first
+    users[0].name.middle, users[1].name.middle = users[1].name.middle, users[0].name.middle
+    users[0].name.last, users[1].name.last = users[1].name.last, users[0].name.last
+    users[0].name.suffix, users[1].name.suffix = users[1].name.suffix, users[0].name.suffix
+    plaintiff_index = 1
+  else:
+    plaintiff_index = 0
+  defendant_index = 1 - plaintiff_index
+
+  trial_court.division
+  docket_number
+  set_progress(30)
+  marriage_breakdown_date
+  breakdown_location
+  action_commenced_date
+  set_progress(50)
+
+  users[0].has_attorney
+  if users[0].has_attorney:
+    attorneys[0].name_fields()
+    attorneys[0].address_fields()
+    attorneys[0].phone_number
+    attorneys[0].bbo_number
+  else:
+    users[0].phone_number
+
+  set_progress(70)
+  users[1].has_attorney
+  if users[1].has_attorney:
+    attorneys[1].name_fields()
+    attorneys[1].address_fields()
+    attorneys[1].phone_number
+    attorneys[1].bbo_number
+  else:
+    users[1].phone_number
+
+  set_progress(90)
+  if plaintiff_index == 0:
+    if not users[0].has_attorney:
+      users[0].signature
+    if not users[1].has_attorney:
+      users[1].signature
+    else:
+      attorneys[1].signature
+  else:
+    if not users[1].has_attorney:
+      users[1].signature
+    if not users[0].has_attorney:
+      users[0].signature
+    else:
+      attorneys[0].signature
+
+  combined_interview_order_motion_to_amend = True
+---
+code: |
+  if separation_agreement_format == "interview":
+    petition_request_merge_agreement = (
+      children_of_marriage or not provisions_that_merge.all_false()
+    )
+    petition_request_survive_agreement = True
+  else:
+    petition_request_merge_agreement = request_merge_agreement
+    petition_request_survive_agreement = request_survive_agreement
+  set_petition_merger_survival_values = True
+---
+# The care-or-custody package also ships a standalone list-collect definition
+# for children[i].name.first. In the combined interview, the spouses already
+# chose an exact child count and children.target_number is set from it. Keep a
+# parent-owned definition here so the standalone 16-row collector cannot
+# replace the fixed-count child loop.
+id: combined child details
+sets:
+  - children[i].name.first
+  - children[i].name.last
+  - children[i].name.middle
+  - children[i].name.suffix
+  - children[i].birthdate
+question: |
+  Information about your ${ ordinal(i) } child
+fields:
+  - code: |
+      children[i].name_fields()
+  - Birthdate: children[i].birthdate
+    datatype: date
 ---
 comment: |
   Search only the venue address worked out in divorce_joint_petition.yml.
@@ -592,12 +764,149 @@ code: |
       },
   )
   divorcejointpetition_preview_question
+  # Several included child interviews define the global signature_fields
+  # variable. Set the combined packet's signer matrix at the point of use so
+  # a child's standalone default cannot make represented spouses sign instead
+  # of their attorneys.
+  signature_fields = [
+      'attorneys[0].signature' if users[0].has_attorney else 'users[0].signature',
+      'attorneys[1].signature' if users[1].has_attorney else 'users[1].signature',
+  ]
   basic_questions_signature_flow
 
+  combined_bundle_final_packet_normalized
+  combined_bundle_enabled_document_names
   if not defined("divorcejointpetition_downloads_ready"):
-    if al_user_bundle.generate_downloads_with_docx_task.ready():
+    if (
+        al_user_bundle.generate_downloads_with_docx_task.ready()
+        and defined("al_user_bundle._downloadable_files")
+    ):
       divorcejointpetition_downloads_ready = True
     else:
       al_download_waiting_screen
 
+  combined_bundle_download_evidence
   divorcejointpetition_download
+---
+id: combined bundle final packet normalization
+code: |
+  # Included standalone packages can populate ALDocument enablement caches
+  # after the parent's initial normalization. Pin the final route decisions in
+  # the cache immediately before enumeration. Merely deleting these values can
+  # re-run an included package's ALDocument constructor with enabled=True.
+  for conditional_document, final_enabled in (
+      (motion_to_amend_attachment, has_existing_1b_action),
+      (r408_attachment, include_r408),
+      (
+        affidavitofindigency_attachment,
+        ask_if_qualifies_for_fee_waiver and is_indigent,
+      ),
+      (
+        child_care_or_custody_disclosure_affidavit_next_steps,
+        include_care_or_custody_affidavit,
+      ),
+      (
+        affidavit_of_care_or_custody_attachment,
+        include_care_or_custody_affidavit,
+      ),
+      (
+        ma_child_support_guidelines_worksheet_attachment,
+        include_child_support_guidelines_worksheet,
+      ),
+      (cjd_305_attachment, include_findings_and_determinations),
+      (
+        users[0].financial_statement_short_attachment,
+        include_financial_statement
+        and showifdef(users[0].attr_name("making_statement_for"))
+        and showifdef(users[0].attr_name("financial_form_type")) == "short",
+      ),
+      (
+        users[0].financial_statement_long_attachment,
+        include_financial_statement
+        and showifdef(users[0].attr_name("making_statement_for"))
+        and showifdef(users[0].attr_name("financial_form_type")) == "long",
+      ),
+      (
+        users[0].financial_statement_schedule_a_attachment,
+        include_financial_statement
+        and showifdef(users[0].attr_name("making_statement_for"))
+        and showifdef(users[0].attr_name("has_self_employment_income")),
+      ),
+      (
+        users[0].financial_statement_schedule_b_attachment,
+        include_financial_statement
+        and showifdef(users[0].attr_name("making_statement_for"))
+        and showifdef(users[0].attr_name("has_rental_income")),
+      ),
+      (
+        users[1].financial_statement_short_attachment,
+        include_financial_statement
+        and showifdef(users[1].attr_name("making_statement_for"))
+        and showifdef(users[1].attr_name("financial_form_type")) == "short",
+      ),
+      (
+        users[1].financial_statement_long_attachment,
+        include_financial_statement
+        and showifdef(users[1].attr_name("making_statement_for"))
+        and showifdef(users[1].attr_name("financial_form_type")) == "long",
+      ),
+      (
+        users[1].financial_statement_schedule_a_attachment,
+        include_financial_statement
+        and showifdef(users[1].attr_name("making_statement_for"))
+        and showifdef(users[1].attr_name("has_self_employment_income")),
+      ),
+      (
+        users[1].financial_statement_schedule_b_attachment,
+        include_financial_statement
+        and showifdef(users[1].attr_name("making_statement_for"))
+        and showifdef(users[1].attr_name("has_rental_income")),
+      ),
+      (
+        a_divorce_agreement_Post_interview_instructions,
+        include_separation_agreement,
+      ),
+      (a_divorce_agreement_attachment, include_separation_agreement),
+  ):
+    conditional_document.always_enabled = False
+    conditional_document.enabled = bool(final_enabled)
+    conditional_document.cache.enabled = bool(final_enabled)
+  combined_bundle_final_packet_normalized = True
+---
+id: combined bundle enabled document names
+code: |
+  combined_bundle_enabled_document_names = [
+    document.instanceName
+    for document in al_user_bundle.enabled_documents(refresh=True)
+  ]
+---
+id: combined bundle download evidence
+code: |
+  # Convert the completed background result into primitives before the
+  # certification API reads it.  DAFile objects cannot safely be serialized
+  # through value() and attempting to do so can fail the live interview.
+  combined_bundle_download_evidence = {"documents": [], "bundle_files": []}
+  certification_document_results, certification_zip, certification_pdf = al_user_bundle._downloadable_files
+  for certification_document in certification_document_results:
+    certification_document_evidence = {
+      "title": str(certification_document.get("title", "")),
+      "files": [],
+    }
+    for certification_format in ("pdf", "docx", "original"):
+      if certification_format in certification_document:
+        certification_file = certification_document[certification_format]
+        certification_document_evidence["files"].append({
+          "format": certification_format,
+          "filename": certification_file.filename,
+          "extension": certification_file.extension,
+          "ok": certification_file.ok,
+        })
+    combined_bundle_download_evidence["documents"].append(certification_document_evidence)
+  for certification_format, certification_file in (("zip", certification_zip), ("pdf", certification_pdf)):
+    if certification_file is not None:
+      combined_bundle_download_evidence["bundle_files"].append({
+        "format": certification_format,
+        "filename": certification_file.filename,
+        "extension": certification_file.extension,
+        "ok": certification_file.ok,
+      })

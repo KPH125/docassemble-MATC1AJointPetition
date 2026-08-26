@@ -1,0 +1,751 @@
+model_version: 1
+entrypoint: docassemble.MATC1ADivorceJointPetition:data/questions/main_joint_petition.yml
+default_terminal_ids:
+  - download divorce joint petition
+default_probe_events:
+  - event: review_divorcejointpetition
+    expected_id: divorce joint petition review screen
+
+# Every listed value must appear in a declared modeled path. Runtime evidence
+# then proves the resulting screen sequence; fields outside the model receive
+# one valid representative unless a boundary case requires another value.
+dimensions:
+  has_existing_1b_action: [false, true]
+  financial_statement_scope: [neither, spouse_1_only, spouse_2_only, both]
+  legal_marriage: [false, true]
+  international_marriage: [false, true]
+  massachusetts_residency: [false, true]
+  couple_ever_lived_in_massachusetts: [false, true]
+  breakdown_in_massachusetts: [false, true]
+  divorce_type_affirmations.want_divorce: [false, true]
+  divorce_type_affirmations.file_jointly: [false, true]
+  divorce_type_affirmations.will_notarize: [false, true]
+  separation_agreement_reached: [false, true]
+  parties_will_negotiate: [false, true]
+  separation_agreement_format: [wait, upload, interview]
+  csg_worksheet_path: [wait, upload, interview]
+  uploaded_worksheet_payor: [party_a, party_b]
+  children_of_marriage: [false, true]
+  previous_action: [false, true]
+  who_lives_at_marital_home: [both, party_a, party_b, neither]
+  request_merge_agreement: [false, true]
+  request_survive_agreement: [false, true]
+  users[0].has_attorney: [false, true]
+  users[1].has_attorney: [false, true]
+  ask_if_qualifies_for_fee_waiver: [false, true]
+  fee_waiver_qualifies: [false, true]
+  health_insurance_custom_terms_adult: [false, true]
+  health_insurance_self_responsible: [false, true]
+  taxes_custom_terms: [false, true]
+  alimony_waived_all: [false, true]
+  alimony_payment_agreed: [false, true]
+  individual_debt_responsible_each: [false, true]
+  children[i].has_gal: [false, true]
+  uploaded_agreement_addresses_child_support: [false, true]
+  uploaded_agreement_child_support_deviation: [false, true]
+  child_support_deviation: [false, true]
+  custody_case_participation: [no cases, know of, participated]
+
+default_variables:
+  has_existing_1b_action: false
+  financial_statement_scope: neither
+  legal_marriage: true
+  marriage_certificate_upload: ''
+  massachusetts_residency: true
+  divorce_type_affirmations:
+    want_divorce: true
+    file_jointly: true
+    will_notarize: true
+  children_of_marriage: false
+  children_of_marriage_number: 0
+  separation_agreement_reached: true
+  separation_agreement_documented: false
+  separation_agreement_format: wait
+  csg_worksheet_path: wait
+  uploaded_worksheet_payor: party_a
+  uploaded_agreement_addresses_child_support: false
+  uploaded_agreement_child_support_deviation: false
+  child_support_deviation: false
+  international_marriage: false
+  previous_action: false
+  who_lives_at_marital_home: both
+  request_merge_agreement: true
+  request_survive_agreement: true
+  users[0].has_attorney: false
+  users[1].has_attorney: false
+  users[0].name.first: Alex
+  users[0].name.last: Example
+  users[0].birthdate: '1985-01-15'
+  users[0].ssn: 123-45-6789
+  users[1].name.first: Bailey
+  users[1].name.last: Example
+  users[1].birthdate: '1987-01-15'
+  users[1].ssn: 987-65-4321
+  users[i].birthdate: '1985-01-15'
+  users[0].address.address: 1 Main Street
+  users[0].address.city: Boston
+  users[0].address.state: MA
+  users[0].address.zip: '02108'
+  users[1].address.address: 1 Main Street
+  users[1].address.city: Boston
+  users[1].address.state: MA
+  users[1].address.zip: '02108'
+  marital_home.address: 1 Main Street
+  marital_home.city: Boston
+  marital_home.state: MA
+  marital_home.zip: '02108'
+  ask_if_qualifies_for_fee_waiver: false
+  fee_waiver_qualifies: true
+  health_insurance_custom_terms_adult: true
+  health_insurance_self_responsible: true
+  taxes_custom_terms: true
+  alimony_waived_all: true
+  alimony_payment_agreed: false
+  individual_debt_responsible_each: true
+  custody_case_participation: no cases
+  children[i].has_gal: false
+  children[i].gals.target_number: 0
+  children[i].address.country: USA
+  children[i].address.start_date: '2024'
+
+# These are the finite path archetypes. Each entry is a complete modeled path:
+# the generator overlays it on default_variables and the runtime ledger proves
+# the actual screen sequence. The set expands until every reachable local
+# screen and every dimension value is accounted for.
+modeled_paths:
+  - name: baseline no children agreement later
+    family: baseline
+    overrides: {}
+    required_screen_ids:
+      - sign party A
+      - sign party B
+    forbidden_screen_ids:
+      - sign attorney for party A
+      - sign attorney for party B
+
+  - name: legal marriage warning
+    family: eligibility
+    overrides:
+      legal_marriage: false
+
+  - name: jurisdiction warning no marital Massachusetts residence
+    family: eligibility
+    overrides:
+      massachusetts_residency: false
+      couple_ever_lived_in_massachusetts: false
+
+  - name: jurisdiction warning breakdown outside Massachusetts
+    family: eligibility
+    overrides:
+      massachusetts_residency: false
+      couple_ever_lived_in_massachusetts: true
+      breakdown_in_massachusetts: false
+
+  - name: alternate jurisdiction qualifies
+    family: eligibility
+    overrides:
+      massachusetts_residency: false
+      couple_ever_lived_in_massachusetts: true
+      breakdown_in_massachusetts: true
+
+  - name: divorce desire unchecked
+    family: eligibility
+    overrides:
+      divorce_type_affirmations:
+        want_divorce: false
+        file_jointly: true
+        will_notarize: true
+
+  - name: joint filing unchecked
+    family: eligibility
+    overrides:
+      divorce_type_affirmations:
+        want_divorce: true
+        file_jointly: false
+        will_notarize: true
+
+  - name: notarization unchecked
+    family: eligibility
+    overrides:
+      divorce_type_affirmations:
+        want_divorce: true
+        file_jointly: true
+        will_notarize: false
+
+  - name: all 1A affirmations unchecked
+    family: eligibility
+    overrides:
+      divorce_type_affirmations:
+        want_divorce: false
+        file_jointly: false
+        will_notarize: false
+
+  - name: existing 1B party A plaintiff
+    family: existing_case
+    overrides:
+      has_existing_1b_action: true
+      plaintiff_is_party_a: true
+      who_lives_at_marital_home: party_a
+
+  - name: existing 1B party B plaintiff
+    family: existing_case
+    overrides:
+      has_existing_1b_action: true
+      plaintiff_is_party_a: false
+
+  - name: both spouses represented
+    family: counsel
+    overrides:
+      users[0].has_attorney: true
+      users[1].has_attorney: true
+    required_screen_ids:
+      - sign attorney for party A
+      - sign attorney for party B
+    forbidden_screen_ids:
+      - sign party A
+      - sign party B
+
+  - name: only party A represented
+    family: counsel
+    overrides:
+      users[0].has_attorney: true
+    required_screen_ids:
+      - sign attorney for party A
+      - sign party B
+    forbidden_screen_ids:
+      - sign party A
+      - sign attorney for party B
+
+  - name: only party B represented
+    family: counsel
+    overrides:
+      users[1].has_attorney: true
+      who_lives_at_marital_home: party_b
+    required_screen_ids:
+      - sign party A
+      - sign attorney for party B
+    forbidden_screen_ids:
+      - sign attorney for party A
+      - sign party B
+
+  - name: no agreement and unwilling to negotiate
+    family: agreement
+    overrides:
+      separation_agreement_reached: false
+      parties_will_negotiate: false
+
+  - name: negotiate and create childless agreement
+    family: agreement
+    overrides:
+      separation_agreement_reached: false
+      parties_will_negotiate: true
+      separation_agreement_format: interview
+
+  - name: upload childless agreement
+    family: agreement
+    overrides:
+      separation_agreement_documented: true
+      separation_agreement_format: upload
+      request_merge_agreement: false
+      separation_agreement_upload:
+        $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
+
+  - name: one child worksheet later agreement later
+    family: children
+    overrides:
+      children_of_marriage: true
+      children_of_marriage_number: 1
+      csg_worksheet_path: wait
+      children[0].previous_addresses.there_are_any: true
+    cardinalities:
+      child_previous_addresses: [1]
+
+  - name: two children uploaded worksheet uploaded agreement no deviation
+    family: children
+    overrides:
+      children_of_marriage: true
+      children_of_marriage_number: 2
+      csg_worksheet_path: upload
+      uploaded_worksheet_payor: party_b
+      child_support_guidelines_worksheet_upload:
+        $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
+      separation_agreement_documented: true
+      separation_agreement_format: upload
+      separation_agreement_upload:
+        $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
+      uploaded_agreement_addresses_child_support: true
+      uploaded_agreement_child_support_deviation: false
+      custody_case_participation: participated
+      other_care_custody_proceedings[0].other_party_types:
+        other: true
+        dcf: false
+      children[0].previous_addresses.there_are_any: true
+      children[0].previous_addresses.there_is_another:
+        $sequence: [true, false]
+    cardinalities:
+      other_care_custody_proceedings: 1
+      child_previous_addresses: [2, 0]
+      proceeding_other_parties: [1]
+
+  - name: four children uploaded worksheet uploaded agreement deviation
+    family: children
+    overrides:
+      children_of_marriage: true
+      children_of_marriage_number: 4
+      csg_worksheet_path: upload
+      child_support_guidelines_worksheet_upload:
+        $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
+      separation_agreement_documented: true
+      separation_agreement_format: upload
+      separation_agreement_upload:
+        $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
+      uploaded_agreement_addresses_child_support: true
+      uploaded_agreement_child_support_deviation: true
+      custody_case_participation: participated
+      other_care_custody_proceedings.there_is_another:
+        $sequence: [true, false]
+      other_care_custody_proceedings[0].other_party_types:
+        other: true
+        dcf: false
+      other_care_custody_proceedings[0].other_parties.there_is_another:
+        $sequence: [true, true, false]
+      other_care_custody_proceedings[1].other_party_types:
+        other: false
+        dcf: false
+      children[0].previous_addresses.there_are_any: true
+      children[0].previous_addresses.there_is_another:
+        $sequence: [true, true, false]
+    cardinalities:
+      other_care_custody_proceedings: 2
+      child_previous_addresses: [3, 0, 0, 0]
+      proceeding_other_parties: [3, 0]
+
+  - name: five children built worksheet built agreement
+    family: children
+    overrides:
+      children_of_marriage: true
+      children_of_marriage_number: 5
+      csg_worksheet_path: interview
+      separation_agreement_format: interview
+      child_support_deviation: false
+      custody_case_participation: know of
+      other_care_custody_proceedings[0].other_party_types:
+        other: true
+        dcf: false
+      other_care_custody_proceedings[0].other_parties.there_is_another:
+        $sequence: [true, true, true, false]
+    cardinalities:
+      other_care_custody_proceedings: 1
+      proceeding_other_parties: [4]
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_a_divorce_agreement
+        expected_id: review a divorce agreement
+      - event: children.revisit
+        expected_id: edit children
+
+  - name: nine children built worksheet built agreement deviation
+    family: children
+    overrides:
+      children_of_marriage: true
+      children_of_marriage_number: 9
+      csg_worksheet_path: interview
+      separation_agreement_format: interview
+      child_support_deviation: true
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_cjd_305
+        expected_id: review cjd_305
+
+  - name: only party A short financial statement
+    family: financial
+    overrides:
+      financial_statement_scope: spouse_1_only
+      users[0].gross_annual_income: 74999
+      users[0].has_self_employment_income: false
+      users[0].has_rental_income: false
+      users[0].income_list.selected_types:
+        wages: true
+      users[0].expense_list.selected_types:
+        rent: true
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_court_and_parties_fs
+        expected_id: review_court_and_parties_fs
+      - event: review_personal_information_fs
+        expected_id: review_personal_information_fs
+      - event: review_income_fs
+        expected_id: review_income_fs
+      - event: review_deductions_short_fs
+        expected_id: review_deductions_short_fs
+      - event: review_expenses_short_fs
+        expected_id: review_expenses_short_fs
+      - event: review_assets_short_fs
+        expected_id: review_assets_short_fs
+      - event: review_liabilities_short_fs
+        expected_id: review_liabilities_short_fs
+      - event: review_fs
+        expected_id: review_fs
+      - event: review_all_sections_fs
+        expected_id: review_all_sections_fs
+      - event: users[0].income_list.revisit
+        expected_id: fs_income_revisit
+      - event: users[0].expense_list.revisit
+        expected_id: fs_expense_revisit
+      - event: users[0].motor_vehicles.revisit
+        expected_id: motor_vehicles_revisit
+      - event: users[0].pensions.revisit
+        expected_id: pensions_revisit
+      - event: users[0].other_assets.revisit
+        expected_id: other_assets_revisit
+      - event: users[0].liabilities.revisit
+        expected_id: liabilities_revisit
+      - event: users.revisit
+        expected_id: edit users
+
+  - name: only party B long financial statement
+    family: financial
+    overrides:
+      financial_statement_scope: spouse_2_only
+      users[1].gross_annual_income: 75000
+      users[1].has_self_employment_income: false
+      users[1].has_rental_income: false
+      users[1].income_list.selected_types:
+        wages: true
+      users[1].long_expense_list.selected_types:
+        rent: true
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_deductions_long_fs
+        expected_id: review_deductions_long_fs
+      - event: review_expenses_long_fs
+        expected_id: review_expenses_long_fs
+      - event: review_assets_long_fs
+        expected_id: review_assets_long_fs
+      - event: review_liabilities_long_fs
+        expected_id: review_liabilities_long_fs
+      - event: users[1].long_expense_list.revisit
+        expected_id: long_expense_revisit
+
+  - name: both short financial statements
+    family: financial
+    overrides:
+      financial_statement_scope: both
+      users[0].gross_annual_income: 0
+      users[1].gross_annual_income: 74999
+      users[0].has_self_employment_income: false
+      users[0].has_rental_income: false
+      users[1].has_self_employment_income: false
+      users[1].has_rental_income: false
+      users[0].motor_vehicles.there_are_any: true
+      users[0].pensions.there_are_any: true
+      users[0].other_assets.there_are_any: true
+      users[0].liabilities.there_are_any: true
+    cardinalities:
+      financial_motor_vehicles: [1, 0]
+      financial_pensions: [1, 0]
+      financial_other_assets: [1, 0]
+      financial_liabilities: [1, 0]
+
+  - name: both long financial statements at upper boundary
+    family: financial
+    overrides:
+      financial_statement_scope: both
+      users[0].gross_annual_income: 75001
+      users[1].gross_annual_income: 75001
+      users[0].has_self_employment_income: false
+      users[0].has_rental_income: false
+      users[1].has_self_employment_income: false
+      users[1].has_rental_income: false
+      users[0].motor_vehicles.there_are_any: true
+      users[0].motor_vehicles.there_is_another:
+        $sequence: [true, false]
+      users[0].pensions.there_are_any: true
+      users[0].pensions.there_is_another:
+        $sequence: [true, false]
+      users[0].other_assets.there_are_any: true
+      users[0].other_assets.there_is_another:
+        $sequence: [true, false]
+      users[0].liabilities.there_are_any: true
+      users[0].liabilities.there_is_another:
+        $sequence: [true, false]
+    cardinalities:
+      financial_motor_vehicles: [2, 0]
+      financial_pensions: [2, 0]
+      financial_other_assets: [2, 0]
+      financial_liabilities: [2, 0]
+
+  - name: party A self employment schedule
+    family: financial
+    overrides:
+      financial_statement_scope: spouse_1_only
+      users[0].gross_annual_income: 75000
+      users[0].has_self_employment_income: true
+      users[0].has_rental_income: false
+
+  - name: party B rental schedule
+    family: financial
+    overrides:
+      financial_statement_scope: spouse_2_only
+      users[1].gross_annual_income: 75000
+      users[1].has_self_employment_income: false
+      users[1].has_rental_income: true
+
+  - name: party A both schedules
+    family: financial
+    overrides:
+      financial_statement_scope: spouse_1_only
+      users[0].gross_annual_income: 75000
+      users[0].has_self_employment_income: true
+      users[0].has_rental_income: true
+      users[0].schedule_a_expenses.there_are_any: true
+      users[0].schedule_a_expenses.there_is_another: false
+      users[0].schedule_b_expenses.there_are_any: true
+      users[0].schedule_b_expenses.there_is_another: false
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_schedule_a_fs
+        expected_id: review_schedule_a_fs
+      - event: review_schedule_b_fs
+        expected_id: review_schedule_b_fs
+      - event: users[0].schedule_a_expenses.revisit
+        expected_id: schedule_a_expenses_revisit
+      - event: users[0].schedule_b_expenses.revisit
+        expected_id: schedule_b_expenses_revisit
+
+  - name: fee waiver interview
+    family: fee_waiver
+    overrides:
+      ask_if_qualifies_for_fee_waiver: true
+
+  - name: uploaded marriage certificate
+    family: documents
+    overrides:
+      marriage_certificate_upload:
+        $file: docassemble/MATC1ADivorceJointPetition/data/templates/r408.pdf
+
+  - name: international marriage
+    family: relationship
+    overrides:
+      international_marriage: true
+      who_lives_at_marital_home: neither
+
+  - name: previous divorce-related action
+    family: relationship
+    overrides:
+      previous_action: true
+      request_survive_agreement: false
+
+  - name: fee waiver detailed supplement
+    family: fee_waiver
+    overrides:
+      ask_if_qualifies_for_fee_waiver: true
+      fee_waiver_qualifies: true
+      hh_income.value: 10000
+      hh_income.times_per_year: 12
+      can_afford: false
+      users[0].jobs.target_number: 1
+      users[0].nonemployment.selected_types:
+        other: true
+      users[0].nonemployment[0].times_per_year: 12
+      users[0].nonemployment[0].value: 5000
+      household.target_number: 1
+      household[i].jobs.target_number: 1
+      users[0].accounts.there_are_any: true
+
+  - name: fee waiver does not qualify
+    family: fee_waiver
+    overrides:
+      ask_if_qualifies_for_fee_waiver: true
+      fee_waiver_qualifies: false
+      hh_income.value: 10000
+      hh_income.times_per_year: 12
+      can_afford: true
+
+  - name: fee waiver detailed income qualifies after reconciliation
+    family: fee_waiver
+    overrides:
+      ask_if_qualifies_for_fee_waiver: true
+      fee_waiver_qualifies: true
+      hh_income.value: 10000
+      hh_income.times_per_year: 12
+      can_afford: false
+      has_household_members: false
+      users[0].jobs.target_number: 1
+      users[0].jobs[0].is_hourly: false
+      users[0].jobs[0].times_per_year: 12
+      users[0].jobs[0].value: 100
+      users[0].jobs[0].deduction: 0
+      users[0].nonemployment.selected_types: {}
+      confirm_can_skip_supplement: true
+
+  - name: multiple venue counties
+    family: venue
+    overrides:
+      who_lives_at_marital_home: neither
+      users[0].address.county: Suffolk
+      users[1].address.address: 225 Main Street
+      users[1].address.city: Worcester
+      users[1].address.county: Worcester
+      users[1].address.zip: '01608'
+
+  - name: multiple courts in Essex County
+    family: venue
+    overrides:
+      marital_home.address: 2 Federal Street
+      marital_home.city: Salem
+      marital_home.county: Essex
+      marital_home.zip: '01970'
+      users[0].address.address: 2 Federal Street
+      users[0].address.city: Salem
+      users[0].address.county: Essex
+      users[0].address.zip: '01970'
+      users[1].address.address: 2 Federal Street
+      users[1].address.city: Salem
+      users[1].address.county: Essex
+      users[1].address.zip: '01970'
+
+  - name: agreement insurance alimony and individual debts
+    family: agreement
+    overrides:
+      separation_agreement_format: interview
+      health_insurance_custom_terms_adult: true
+      health_insurance_self_responsible: false
+      health_insurance_with_cost_allowed: 'Yes'
+      alimony_waived_all: false
+      alimony_payment_agreed: true
+      individual_debt_responsible_each: false
+    probe_events:
+      - event: review_divorcejointpetition
+        expected_id: divorce joint petition review screen
+      - event: review_a_divorce_agreement
+        expected_id: review a divorce agreement
+
+  - name: adoption proceeding and appointed guardian
+    family: children
+    overrides:
+      children_of_marriage: true
+      children_of_marriage_number: 1
+      csg_worksheet_path: wait
+      custody_case_participation: participated
+      other_care_custody_proceedings[0].case_status: adoption
+      other_care_custody_proceedings[0].other_party_types:
+        other: false
+        dcf: false
+      children[i].has_gal: true
+      children[i].gals.target_number: 1
+    cardinalities:
+      other_care_custody_proceedings: 1
+
+  - name: agreement health insurance impasse
+    family: agreement
+    overrides:
+      separation_agreement_format: interview
+      health_insurance_custom_terms_adult: false
+    required_screen_ids:
+      - health insurance no agreement exit
+
+  - name: agreement tax impasse
+    family: agreement
+    overrides:
+      separation_agreement_format: interview
+      health_insurance_custom_terms_adult: true
+      taxes_custom_terms: false
+      taxes_file_separately: false
+    required_screen_ids:
+      - taxes no agreement exit
+
+cardinality_classes:
+  users: [2]
+  children: [0, 1, 2, 4, 5, 9]
+  other_care_custody_proceedings: [0, 1, 2]
+  child_previous_addresses: [0, 1, 2, 3]
+  proceeding_other_parties: [0, 1, 3, 4]
+  financial_motor_vehicles: [0, 1, 2]
+  financial_pensions: [0, 1, 2]
+  financial_other_assets: [0, 1, 2]
+  financial_liabilities: [0, 1, 2]
+
+cardinality_probes:
+  users:
+    variable: users
+    fixed_count: 2
+  children:
+    variable: children
+    count_variable: children_of_marriage_number
+  other_care_custody_proceedings:
+    variable: other_care_custody_proceedings
+    default_count: 0
+  child_previous_addresses:
+    variable: children[*].previous_addresses
+    when_variable: children_of_marriage
+    per_parent_count_variable: children_of_marriage_number
+    default_count: 0
+  proceeding_other_parties:
+    variable: other_care_custody_proceedings[*].other_parties
+    parent_cardinality: other_care_custody_proceedings
+    default_count: 0
+  financial_motor_vehicles:
+    variable: users[*].motor_vehicles
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
+    default_count: 0
+  financial_pensions:
+    variable: users[*].pensions
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
+    default_count: 0
+  financial_other_assets:
+    variable: users[*].other_assets
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
+    default_count: 0
+  financial_liabilities:
+    variable: users[*].liabilities
+    when_variable: financial_statement_scope
+    when_values: [both]
+    parent_cardinality: users
+    default_count: 0
+
+representatives:
+  text: Test
+  area: Test details
+  email: test@example.com
+  phone: 6175550100
+  date: '2025-01-15'
+  integer: 1
+  number: 1
+  currency: 100
+
+numeric_boundaries:
+  users[i].gross_annual_income: [0, 74999, 75000, 75001]
+  number_of_children_eligible: [1, 2, 3, 4, 5, 6]
+
+hang_policy:
+  runtime_workers: 1
+  request_timeout_seconds: 60
+  scenario_timeout_seconds: 900
+  max_steps: 500
+  max_same_screen_consecutive: 3
+  max_same_state_visits: 2
+  # The ten-document five-child packet completes in about 80 seconds on the
+  # bounded runner. Treat three minutes on the user-visible waiting screen as
+  # a failure while leaving more than twice that verified packet-build time.
+  download_task_timeout_seconds: 180
+
+pass_gate:
+  - every statically declared local question id is classified as reached or proven unreachable
+  - every modeled dimension value is exercised when reachable
+  - every observed screen transition is recorded
+  - every terminal outcome is classified
+  - no error screen, HTTP failure, repeated-state loop, step exhaustion, or timeout
+  - every generated bundle completes and contains the expected documents
+  - runtime package versions and image digest match the run manifest

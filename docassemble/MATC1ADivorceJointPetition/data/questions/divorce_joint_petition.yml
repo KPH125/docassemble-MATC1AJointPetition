@@ -127,6 +127,11 @@ code: |
   
   nav.set_section("children_information")
   if children_of_marriage:
+    # The combined interview asks for an exact count before gathering. Set the
+    # list target here, where gather() consumes it, so included standalone
+    # list-collection rules cannot fall back to a one-at-a-time loop.
+    children.ask_number = True
+    children.target_number = children_of_marriage_number
     children.gather()
     set_parts(subtitle=str(children))
     users1_number_of_custodial_children
@@ -1467,8 +1472,8 @@ attachment:
       - "marriage_breakdown_date": ${ marriage_breakdown_date.format() }
       - "request_divorce_nofault": ${ request_divorce_nofault }
       - "request_separation_agreement_approval": ${ request_separation_agreement_approval }
-      - "request_merge_agreement": ${ request_merge_agreement }
-      - "request_survive_agreement": ${ request_survive_agreement }
+      - "request_merge_agreement": ${ petition_request_merge_agreement }
+      - "request_survive_agreement": ${ petition_request_survive_agreement }
       - "users1_request_name_change": ${ users1_request_name_change }
       - "users1_former_name_last": ${ users1_former_name_last }
       - "users2_request_name_change": ${ users2_request_name_change }

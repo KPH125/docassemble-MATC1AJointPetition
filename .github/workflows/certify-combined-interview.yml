@@ -1,0 +1,231 @@
+name: Certify combined interview paths
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario_pattern:
+        description: Full-match regex for modeled scenario names; leave blank for all paths
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: combined-interview-certification-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DA_ADMIN_EMAIL: admin@example.com
+  DA_CONTAINER: combined-interview-certification
+  DA_IMAGE: jhpyle/docassemble@sha256:c0b0a707a6cd2149d5777ee83af1ea1de544210e597371eac93e67a1503c395c
+
+jobs:
+  static-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: docassemble-MATC1ADivorceJointPetition
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check out pinned local interview packages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python docassemble-MATC1ADivorceJointPetition/tests/certification/checkout_packages.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --skip docassemble.MATC1ADivorceJointPetition
+
+      - name: Build static catalog and run harness tests
+        working-directory: docassemble-MATC1ADivorceJointPetition
+        run: |
+          python -m pip install pyyaml requests
+          python tests/certification/build_catalog.py --workspace "$GITHUB_WORKSPACE"
+          python -m unittest discover -s tests/certification -p 'test_*.py' -v
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: combined-static-catalog
+          path: docassemble-MATC1ADivorceJointPetition/tests/certification/static_catalog.json
+
+  runtime-all-paths:
+    runs-on: ubuntu-latest
+    needs: static-model
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: docassemble-MATC1ADivorceJointPetition
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test client dependencies
+        run: python -m pip install requests pyyaml docassemblecli
+
+      - name: Check out pinned local interview packages
+        working-directory: ${{ github.workspace }}
+        run: |
+          python docassemble-MATC1ADivorceJointPetition/tests/certification/checkout_packages.py \
+            --workspace "$GITHUB_WORKSPACE" \
+            --skip docassemble.MATC1ADivorceJointPetition
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: combined-static-catalog
+          path: docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
+
+      - name: Start disposable Docassemble server
+        timeout-minutes: 15
+        run: |
+          da_key=$(openssl rand -hex 16)
+          da_password=$(openssl rand -base64 24)
+          echo "::add-mask::$da_key"
+          echo "::add-mask::$da_password"
+          echo "DA_API_KEY=$da_key" >> "$GITHUB_ENV"
+          docker pull "$DA_IMAGE"
+          docker run --name "$DA_CONTAINER" \
+            --env DA_ADMIN_EMAIL="$DA_ADMIN_EMAIL" \
+            --env DA_ADMIN_PASSWORD="$da_password" \
+            --env DA_ADMIN_API_KEY="$da_key" \
+            --env DACELERYWORKERS=2 \
+            --cap-add SYS_PTRACE \
+            --memory 6gb \
+            --stop-timeout 60 \
+            -d -p 80:80 \
+            "$DA_IMAGE"
+
+      - name: Wait for initial readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            status=$(curl -o /dev/null -s -w '%{http_code}' 'http://localhost/health_check?ready=1' || true)
+            if [ "$status" = 200 ]; then
+              exit 0
+            fi
+            sleep 20
+          done
+          docker logs "$DA_CONTAINER" --tail 200
+          exit 1
+
+      - name: Install pinned packages and current combined package
+        run: |
+          wait_ready() {
+            for attempt in $(seq 1 30); do
+              status=$(curl -o /dev/null -s -w '%{http_code}' 'http://localhost/health_check?ready=1' || true)
+              if [ "$status" = 200 ]; then
+                return 0
+              fi
+              sleep 10
+            done
+            return 1
+          }
+
+          for package_dir in \
+            docassemble-MATCMotionToAmend \
+            docassemble-MATCFinancialStatement \
+            docassemble-MATCSeparationAgreement \
+            docassemble-MATCChildCareOrCustodyDisclosureAffidavit \
+            docassemble-MATCCSGWorksheet \
+            docassemble-MATCFindingsAndDeterminations \
+            docassemble-MATC1ADivorceJointPetition; do
+            echo "::group::Install $package_dir"
+            wait_ready
+            timeout 10m dainstall "$GITHUB_WORKSPACE/$package_dir" \
+              --apiurl http://localhost \
+              --apikey "$DA_API_KEY"
+            echo "::endgroup::"
+          done
+          wait_ready
+
+      - name: Record runtime package and image manifest
+        run: |
+          mkdir -p docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
+          docker image inspect "$DA_IMAGE" --format '{{json .RepoDigests}}' \
+            > docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docker-image.json
+          docker exec "$DA_CONTAINER" bash -lc \
+            'python_bin=$(find /usr/share/docassemble -maxdepth 3 -path "*/local3.*/bin/python" -print -quit); test -n "$python_bin"; "$python_bin" -m pip freeze' \
+            > docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/pip-freeze.txt
+          python docassemble-MATC1ADivorceJointPetition/tests/certification/verify_runtime_manifest.py \
+            --image docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docker-image.json \
+            --pip-freeze docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/pip-freeze.txt
+
+      - name: Install disposable runtime profiler
+        run: |
+          docker exec "$DA_CONTAINER" bash -lc \
+            'python_bin=$(find /usr/share/docassemble -maxdepth 3 -path "*/local3.*/bin/python" -print -quit); test -n "$python_bin"; "$python_bin" -m pip install py-spy==0.4.2'
+
+      - name: Run every modeled path
+        id: crawl
+        continue-on-error: true
+        working-directory: docassemble-MATC1ADivorceJointPetition
+        env:
+          DA_SERVER_URL: http://localhost
+          CERT_SCENARIO_PATTERN: ${{ inputs.scenario_pattern || '' }}
+        run: |
+          python tests/certification/generate_scenarios.py \
+            --output tests/certification/artifacts/generated-scenarios
+          python tests/certification/runtime_driver.py \
+            --scenarios tests/certification/artifacts/generated-scenarios \
+            --ledger tests/certification/artifacts/runtime-ledger.json \
+            ${CERT_SCENARIO_PATTERN:+--scenario-pattern "$CERT_SCENARIO_PATTERN"}
+
+      - name: Audit complete screen and path coverage
+        if: always()
+        working-directory: docassemble-MATC1ADivorceJointPetition
+        run: |
+          python tests/certification/audit_coverage.py \
+            --catalog tests/certification/artifacts/static_catalog.json \
+            --ledger tests/certification/artifacts/runtime-ledger.json \
+            --output tests/certification/artifacts/coverage-audit.json
+
+      - name: Reject background worker task errors
+        if: always()
+        run: |
+          artifact_dir=docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
+          mkdir -p "$artifact_dir"
+          docker cp "$DA_CONTAINER:/usr/share/docassemble/log/worker.log" \
+            "$artifact_dir/worker.log"
+          if grep -E "Task tasks\..*raised unexpected|Could not retrieve file" \
+            "$artifact_dir/worker.log"; then
+            echo "Docassemble recorded an unexpected background worker failure."
+            exit 1
+          fi
+
+      - name: Capture runtime resource diagnostics
+        if: always()
+        continue-on-error: true
+        run: |
+          artifact_dir=docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
+          docker stats --no-stream "$DA_CONTAINER" > "$artifact_dir/docker-stats.txt"
+          docker exec "$DA_CONTAINER" ps -eo pid,ppid,stat,etime,%cpu,%mem,rss,command \
+            > "$artifact_dir/runtime-processes.txt"
+          worker_pid=$(docker exec "$DA_CONTAINER" bash -lc \
+            "ps -eo pid,%cpu,args --sort=-%cpu | awk '\$0 ~ /celery/ && \$0 !~ /awk/ {print \$1; exit}'")
+          if [ -n "$worker_pid" ]; then
+            docker exec "$DA_CONTAINER" bash -lc \
+              "pyspy_bin=\$(find /usr/share/docassemble -maxdepth 3 -path '*/local3.*/bin/py-spy' -print -quit); test -n \"\$pyspy_bin\"; timeout 30s \"\$pyspy_bin\" dump --pid '$worker_pid'" \
+              > "$artifact_dir/worker-stack.txt" 2>&1 || true
+          fi
+
+      - name: Capture Docassemble logs on failure
+        if: failure() || steps.crawl.outcome == 'failure'
+        run: |
+          mkdir -p docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts
+          docker logs "$DA_CONTAINER" --tail 500 \
+            > docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docker.log 2>&1
+          docker cp "$DA_CONTAINER:/usr/share/docassemble/log" \
+            docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/docassemble-logs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: combined-runtime-all-paths
+          path: docassemble-MATC1ADivorceJointPetition/tests/certification/artifacts/
+
+      - name: Stop disposable server
+        if: always()
+        run: docker stop -t 60 "$DA_CONTAINER" || true

@@ -1,0 +1,120 @@
+{
+  "entrypoint": "docassemble.MATC1ADivorceJointPetition:data/questions/main_joint_petition.yml",
+  "source": {
+    "repository": "SuffolkLITLab/docassemble-MATC1ADivorceJointPetition",
+    "ref": "main",
+    "sha": "d7063d1ebd3ceb59808ac6934c40849ee0189a7a"
+  },
+  "runtime": {
+    "image": "jhpyle/docassemble@sha256:c0b0a707a6cd2149d5777ee83af1ea1de544210e597371eac93e67a1503c395c",
+    "pip_freeze_sha256": "66b4611da4865095c1a70e2631ce8c553cadb51e8643ab54adb2f86df57f4e79"
+  },
+  "candidate_overlays": [
+    {
+      "repository": "SuffolkLITLab/docassemble-MATC1ADivorceJointPetition",
+      "pull_request": 159,
+      "sha": "5519eb22068534a82d93f49a2650617077618054",
+      "reason": "Known fix for the separation-agreement merge loop"
+    },
+    {
+      "repository": "SuffolkLITLab/docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
+      "pull_request": 3,
+      "sha": "08f31c860457e41ea757d3b1f8469c74a7a53556",
+      "reason": "Fix API rendering of the multi-child custody checkbox question"
+    }
+  ],
+  "coverage_scope": {
+    "feature_packages": [
+      "docassemble.MATC1ADivorceJointPetition",
+      "docassemble.MATCMotionToAmend",
+      "docassemble.MATCFinancialStatement",
+      "docassemble.MATCSeparationAgreement",
+      "docassemble.MATCChildCareOrCustodyDisclosureAffidavit",
+      "docassemble.MATCCSGWorksheet",
+      "docassemble.matcfindingsanddeterminations",
+      "docassemble.ALAffidavitOfIndigency"
+    ],
+    "framework_packages": [
+      "docassemble.AssemblyLine",
+      "docassemble.ALMassachusetts",
+      "docassemble.ALToolbox",
+      "docassemble.MassAccess",
+      "docassemble.GithubFeedbackForm"
+    ]
+  },
+  "packages": {
+    "docassemble.MATC1ADivorceJointPetition": {
+      "repository": "SuffolkLITLab/docassemble-MATC1ADivorceJointPetition",
+      "directory": "docassemble-MATC1ADivorceJointPetition",
+      "sha": "d7063d1ebd3ceb59808ac6934c40849ee0189a7a"
+    },
+    "docassemble.MATCMotionToAmend": {
+      "repository": "SuffolkLITLab/docassemble-MATCMotionToAmend",
+      "directory": "docassemble-MATCMotionToAmend",
+      "sha": "f92797e3c417f142faec40fbce35d25fb8bf50d6"
+    },
+    "docassemble.MATCFinancialStatement": {
+      "repository": "SuffolkLITLab/docassemble-MATCFinancialStatement",
+      "directory": "docassemble-MATCFinancialStatement",
+      "sha": "a1dbe3d228c7f36674217103abb082ae35610741"
+    },
+    "docassemble.MATCSeparationAgreement": {
+      "repository": "SuffolkLITLab/docassemble-MATCSeparationAgreement",
+      "directory": "docassemble-MATCSeparationAgreement",
+      "sha": "dce8a19a3249a7be750ddc326913bc2bb93c6dfe"
+    },
+    "docassemble.MATCChildCareOrCustodyDisclosureAffidavit": {
+      "repository": "SuffolkLITLab/docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
+      "directory": "docassemble-MATCChildCareOrCustodyDisclosureAffidavit",
+      "sha": "08f31c860457e41ea757d3b1f8469c74a7a53556"
+    },
+    "docassemble.MATCCSGWorksheet": {
+      "repository": "SuffolkLITLab/docassemble-MATCCSGWorksheet",
+      "directory": "docassemble-MATCCSGWorksheet",
+      "sha": "96589474face58e0bbb18a067f4710e8e50e3d5a"
+    },
+    "docassemble.matcfindingsanddeterminations": {
+      "repository": "SuffolkLITLab/docassemble-MATCFindingsAndDeterminations",
+      "directory": "docassemble-MATCFindingsAndDeterminations",
+      "sha": "9ce10b5f65b0fdd83919d151dee6d9a717723b26"
+    },
+    "docassemble.AssemblyLine": {
+      "repository": "SuffolkLITLab/docassemble-AssemblyLine",
+      "directory": "docassemble-AssemblyLine",
+      "sha": "1c435280ef9c27ed582944dbc1b8c71f8e662521"
+    },
+    "docassemble.ALMassachusetts": {
+      "repository": "SuffolkLITLab/docassemble-ALMassachusetts",
+      "directory": "docassemble-ALMassachusetts",
+      "sha": "854cbc7efc970f6f185bfcbcc6643c271632e0ca"
+    },
+    "docassemble.ALToolbox": {
+      "repository": "SuffolkLITLab/docassemble-ALToolbox",
+      "directory": "docassemble-ALToolbox",
+      "sha": "acbb22a0c5c7cffb3b4d1a1ca77971d047791639"
+    },
+    "docassemble.MassAccess": {
+      "repository": "SuffolkLITLab/docassemble-MassAccess",
+      "directory": "docassemble-MassAccess",
+      "sha": "daf7a99dba0eff96c4fda9f90800f8464c4492e7"
+    },
+    "docassemble.ALAffidavitOfIndigency": {
+      "repository": "SuffolkLITLab/docassemble-ALAffidavitOfIndigency",
+      "directory": "docassemble-ALAffidavitOfIndigency",
+      "sha": "414918eabd2ca2bcbbac15dccb30343aa1ff9e47"
+    },
+    "docassemble.GithubFeedbackForm": {
+      "repository": "SuffolkLITLab/docassemble-GithubFeedbackForm",
+      "directory": "docassemble-GithubFeedbackForm",
+      "sha": "ba9baa908425d12a2ea6ac7167f61aaecc570875"
+    }
+  },
+  "external_packages": {
+    "docassemble.AssemblyLine": "4.7.0",
+    "docassemble.ALMassachusetts": "0.3.0",
+    "docassemble.ALToolbox": "0.19.0",
+    "docassemble.MassAccess": "0.4.3",
+    "docassemble.ALAffidavitOfIndigency": "2.3.0",
+    "docassemble.GithubFeedbackForm": "0.5.6"
+  }
+}
